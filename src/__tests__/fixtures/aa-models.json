@@ -1,0 +1,55 @@
+{
+  "data": [
+    {
+      "slug": "gpt-oss-20b",
+      "name": "GPT OSS 20B",
+      "creator_slug": "openai",
+      "context_window_tokens": 131072,
+      "evaluations": {
+        "artificial_analysis_intelligence_index": 24.5,
+        "artificial_analysis_coding_index": 18.5,
+        "artificial_analysis_agentic_index": 27.6
+      },
+      "pricing": {
+        "price_1m_blended_3_to_1": 0.09,
+        "price_1m_input_tokens": 0.06,
+        "price_1m_output_tokens": 0.2
+      }
+    },
+    {
+      "slug": "claude-sonnet-4",
+      "name": "Claude Sonnet 4",
+      "model_creator": { "slug": "anthropic", "name": "Anthropic" },
+      "context_window_tokens": 200000,
+      "evaluations": {
+        "artificial_analysis_intelligence_index": 68.2,
+        "artificial_analysis_coding_index": 72.1
+      },
+      "pricing": {
+        "price_1m_blended_3_to_1": 3.0
+      }
+    },
+    {
+      "slug": "gemini-2-5-flash",
+      "name": "Gemini 2.5 Flash",
+      "creator_slug": "google",
+      "context_window_tokens": 1000000,
+      "evaluations": {
+        "artificial_analysis_intelligence_index": 55.0,
+        "artificial_analysis_coding_index": 48.3
+      },
+      "pricing": {
+        "price_1m_blended_3_to_1": 0.15
+      }
+    },
+    {
+      "slug": "partial-metrics",
+      "name": "Partial Metrics Model",
+      "evaluations": {
+        "artificial_analysis_intelligence_index": null,
+        "artificial_analysis_coding_index": 10
+      },
+      "pricing": {}
+    }
+  ]
+}

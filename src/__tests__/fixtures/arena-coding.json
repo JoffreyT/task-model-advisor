@@ -1,0 +1,7 @@
+{
+  "models": [
+    { "model": "gpt-4o-2024-08-06", "rank": 1, "score": 1250 },
+    { "model": "claude-3-5-sonnet-20241022", "rank": 2, "score": 1244 },
+    { "model": "gemini-2.0-flash-001", "rank": 3, "score": null }
+  ]
+}

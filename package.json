@@ -1,0 +1,96 @@
+{
+  "name": "task-model-advisor",
+  "displayName": "Task Model Advisor",
+  "description": "Recommend the best available LLM (model, context, thinking) for a task using live benchmarks.",
+  "version": "0.1.0",
+  "publisher": "local",
+  "engines": { "vscode": "^1.90.0" },
+  "categories": ["Other"],
+  "activationEvents": ["onCommand:taskModelAdvisor.recommend"],
+  "main": "./out/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "taskModelAdvisor.recommend",
+        "title": "Task Model Advisor: Recommend a model for this task"
+      }
+    ],
+    "keybindings": [
+      {
+        "command": "taskModelAdvisor.recommend",
+        "key": "ctrl+alt+r",
+        "mac": "cmd+alt+r"
+      }
+    ],
+    "configuration": {
+      "title": "Task Model Advisor",
+      "properties": {
+        "taskModelAdvisor.enabled": { "type": "boolean", "default": true },
+        "taskModelAdvisor.artificialAnalysis.apiKey": {
+          "type": "string",
+          "default": "",
+          "description": "Artificial Analysis Data API key"
+        },
+        "taskModelAdvisor.arena.source": {
+          "type": "string",
+          "default": "wulong-mirror",
+          "enum": ["wulong-mirror"]
+        },
+        "taskModelAdvisor.arena.categories": {
+          "type": "object",
+          "default": {
+            "spec": "text",
+            "userStory": "text",
+            "testScenario": "hard_prompts",
+            "pythonScript": "coding",
+            "other": "text"
+          }
+        },
+        "taskModelAdvisor.ranking.weights": {
+          "type": "object",
+          "default": { "taskFit": 0.5, "arena": 0.3, "cost": 0.2 }
+        },
+        "taskModelAdvisor.modelAliases": {
+          "type": "object",
+          "default": {},
+          "additionalProperties": { "type": "string" }
+        },
+        "taskModelAdvisor.matching.fuzzyThreshold": {
+          "type": "number",
+          "default": 0.72,
+          "minimum": 0,
+          "maximum": 1
+        },
+        "taskModelAdvisor.applyStrategy": {
+          "type": "string",
+          "default": "auto-then-manual",
+          "enum": ["auto-then-manual", "clipboard-only"]
+        },
+        "taskModelAdvisor.fetch.timeoutMs": {
+          "type": "number",
+          "default": 8000
+        },
+        "taskModelAdvisor.reasoningModelPatterns": {
+          "type": "array",
+          "items": { "type": "string" },
+          "default": ["o1", "o3", "deepseek-r1", "extended"]
+        }
+      }
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "package": "vsce package"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.0",
+    "@types/vscode": "^1.90.0",
+    "@vscode/vsce": "^3.0.0",
+    "typescript": "^5.4.0",
+    "vitest": "^2.0.0"
+  }
+}

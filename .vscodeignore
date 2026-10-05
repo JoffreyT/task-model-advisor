@@ -1,0 +1,10 @@
+.vscode/**
+.vscode-test/**
+src/**
+.gitignore
+.superpowers/**
+docs/**
+**/*.ts
+!out/**
+node_modules/**
+*.vsix
