@@ -16,9 +16,11 @@ import type {
   AdvisorConfig,
   ArenaEntry,
   BenchmarkModel,
+  SessionModel,
   TaskProfileId,
 } from "../types";
 import { showRecommendations } from "../ui/recommendation-ui";
+import { pickFallbackSessionModels } from "../ui/session-model-picker";
 import { pickTask } from "../ui/task-picker";
 
 function loadAdvisorConfig(): AdvisorConfig {
@@ -46,13 +48,17 @@ function loadAdvisorConfig(): AdvisorConfig {
       timeoutMs: section.get<number>("fetch.timeoutMs"),
     },
     reasoningModelPatterns: section.get<string[]>("reasoningModelPatterns"),
+    fallbackModels: section.get<string[]>("fallbackModels"),
+    cursor: {
+      apiKey: section.get<string>("cursor.apiKey"),
+    },
   });
 }
 
 interface FetchBundle {
   benchmarks: BenchmarkModel[];
   arena: ArenaEntry[];
-  sessionModels: Awaited<ReturnType<typeof discoverSessionModels>>;
+  sessionModels: SessionModel[];
   warnings: string[];
 }
 
@@ -98,13 +104,12 @@ async function fetchBenchmarksAndSession(
       return [] as ArenaEntry[];
     });
 
-  const sessionPromise = discoverSessionModels().catch((err: unknown) => {
-    const message =
-      err instanceof Error ? err.message : "model discovery failed";
-    warnings.push(
-      `Could not discover session models (${message}). Sign in and open chat, then retry.`
-    );
-    return [] as Awaited<ReturnType<typeof discoverSessionModels>>;
+  const sessionPromise = discoverSessionModels({
+    cursorApiKey: config.cursor.apiKey,
+    timeoutMs: config.fetch.timeoutMs,
+  }).then((result) => {
+    warnings.push(...result.warnings);
+    return result.models;
   });
 
   const [benchmarks, arena, sessionModels] = await Promise.all([
@@ -158,13 +163,24 @@ export async function runRecommendCommand(): Promise<void> {
       return;
     }
 
-    const { benchmarks, arena, sessionModels, warnings } = bundle;
+    const { benchmarks, arena, sessionModels: discovered, warnings } = bundle;
 
+    let sessionModels = discovered;
     if (sessionModels.length === 0) {
-      void vscode.window.showErrorMessage(
-        "No chat models available in this session. Sign in to Copilot or Cursor and open chat, then try again."
+      void vscode.window.showInformationMessage(
+        "Could not auto-discover Cursor models. Select models from your Agent picker (or set taskModelAdvisor.cursor.apiKey / run `agent login`)."
       );
-      return;
+      const picked = await pickFallbackSessionModels(config.fallbackModels);
+      if (!picked || picked.length === 0) {
+        void vscode.window.showErrorMessage(
+          "No session models selected. Cancelled."
+        );
+        return;
+      }
+      sessionModels = picked;
+      warnings.push(
+        "Session models were selected manually (auto-discovery failed)."
+      );
     }
 
     const matched = matchModels(
@@ -200,7 +216,14 @@ export async function runRecommendCommand(): Promise<void> {
       return;
     }
 
-    await applyRecommendation(rec, config.applyStrategy, profileId, rank);
+    try {
+      await applyRecommendation(rec, config.applyStrategy, profileId, rank);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      void vscode.window.showErrorMessage(
+        `Task Model Advisor: validation a échoué (${message}).`
+      );
+    }
     return;
   }
 }

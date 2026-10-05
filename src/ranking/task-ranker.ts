@@ -217,7 +217,8 @@ function bumpThinking(effort: ThinkingEffort): ThinkingEffort {
 
 function buildRationale(
   weights: RankingWeights,
-  breakdown: Recommendation["breakdown"]
+  breakdown: Recommendation["breakdown"],
+  blendedPricePer1M: number | null
 ): string {
   const factors: Array<{ label: string; contribution: number }> = [
     { label: "task fit", contribution: weights.taskFit * breakdown.taskFit },
@@ -227,7 +228,28 @@ function buildRationale(
   factors.sort((a, b) => b.contribution - a.contribution);
   const top = factors.filter((f) => f.contribution > 0).slice(0, 2);
   if (top.length === 0) return "Limited benchmark data; session availability only.";
-  return `Strong ${top.map((f) => f.label).join(" and ")}.`;
+  const base = `Strong ${top.map((f) => f.label).join(" and ")}.`;
+  if (blendedPricePer1M != null && Number.isFinite(blendedPricePer1M)) {
+    return `${base} ~$${blendedPricePer1M.toFixed(2)}/1M tokens.`;
+  }
+  return base;
+}
+
+function costTierFromPrice(
+  price: number | null,
+  prices: number[]
+): Recommendation["costTier"] {
+  if (price == null || !Number.isFinite(price) || prices.length === 0) {
+    return "unknown";
+  }
+  if (prices.length === 1) return "medium";
+  const sorted = [...prices].sort((a, b) => a - b);
+  const lowCut = sorted[Math.floor((sorted.length - 1) / 3)] ?? sorted[0];
+  const highCut =
+    sorted[Math.ceil(((sorted.length - 1) * 2) / 3)] ?? sorted[sorted.length - 1];
+  if (price <= lowCut) return "low";
+  if (price >= highCut) return "high";
+  return "medium";
 }
 
 export function rankRecommendations(input: RankRecommendationsInput): Recommendation[] {
@@ -260,16 +282,26 @@ export function rankRecommendations(input: RankRecommendationsInput): Recommenda
     definedCosts.length > 0 ? minMax(definedCosts) : ([] as number[]);
   let costIdx = 0;
 
+  const pricesAmongMatched = withBenchmark
+    .map((m) => m.benchmark!.blendedPricePer1M)
+    .filter((p): p is number => p != null && p > 0 && Number.isFinite(p));
+
   const scoredMatched: Recommendation[] = withBenchmark.map((m, i) => {
-    const taskFit = normTaskFits[i] ?? 0;
-    const arenaNorm = normArena[i] ?? 0;
+    const taskFit = Number.isFinite(normTaskFits[i]) ? (normTaskFits[i] ?? 0) : 0;
+    const arenaNorm = Number.isFinite(normArena[i]) ? (normArena[i] ?? 0) : 0;
     let cost: number;
     if (rawCosts[i] == null) {
       cost = 0.5;
     } else {
       cost = normCostPool[costIdx] ?? 0.5;
       costIdx++;
+      if (!Number.isFinite(cost)) cost = 0.5;
     }
+    const blendedPricePer1M =
+      m.benchmark!.blendedPricePer1M != null &&
+      Number.isFinite(m.benchmark!.blendedPricePer1M)
+        ? m.benchmark!.blendedPricePer1M
+        : null;
     const breakdown = { taskFit, arena: arenaNorm, cost };
     const score =
       weights.taskFit * taskFit +
@@ -282,15 +314,17 @@ export function rankRecommendations(input: RankRecommendationsInput): Recommenda
     }
     return {
       sessionModel: m.session,
-      score,
+      score: Number.isFinite(score) ? score : 0,
       breakdown,
       contextWindow: resolveContextWindow(profileId, m.benchmark!, customText),
       thinkingEffort,
-      rationale: buildRationale(weights, breakdown),
+      rationale: buildRationale(weights, breakdown, blendedPricePer1M),
       badges: m.badges.filter(
         (b): b is "matched" | "weak" | "enterprise" =>
           b === "matched" || b === "weak" || b === "enterprise"
       ),
+      blendedPricePer1M,
+      costTier: costTierFromPrice(blendedPricePer1M, pricesAmongMatched),
     };
   });
 
@@ -325,6 +359,8 @@ export function rankRecommendations(input: RankRecommendationsInput): Recommenda
         (b): b is "matched" | "weak" | "enterprise" =>
           b === "matched" || b === "weak" || b === "enterprise"
       ),
+      blendedPricePer1M: null,
+      costTier: "unknown" as const,
     };
   });
 

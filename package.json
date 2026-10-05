@@ -74,6 +74,26 @@
           "type": "array",
           "items": { "type": "string" },
           "default": ["o1", "o3", "deepseek-r1", "extended"]
+        },
+        "taskModelAdvisor.fallbackModels": {
+          "type": "array",
+          "items": { "type": "string" },
+          "default": [
+            "Grok 4.7 High Fast",
+            "Grok 4.6 Medium",
+            "Composer 2.5",
+            "Claude Opus 5.5 Medium",
+            "Claude Opus 5 High",
+            "GPT-5.6 Sol Medium",
+            "Claude Fable 5.1 High",
+            "Gemini 3.8 Flash High"
+          ],
+          "description": "Models offered when vscode.lm and Cursor auto-discovery both fail. Use the same labels as in your Agent model picker."
+        },
+        "taskModelAdvisor.cursor.apiKey": {
+          "type": "string",
+          "default": "",
+          "description": "Cursor API key (Dashboard → API Keys). Used to list account models via `agent --list-models` / GET https://api.cursor.com/v1/models when vscode.lm is empty."
         }
       }
     }

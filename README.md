@@ -50,8 +50,9 @@ Other settings use sensible defaults (`taskModelAdvisor.enabled`, Arena categori
 
 ## Known limitations
 
-- **Validate** may be **clipboard-only** on some hosts: if the editor exposes no stable API to set model / context / thinking, the extension copies structured JSON and shows manual steps (`taskModelAdvisor.applyStrategy`: `auto-then-manual` vs `clipboard-only`).
-- **Empty session models:** If `discoverSessionModels()` returns no chat models, you see: *“No chat models available in this session. Sign in to Copilot or Cursor and open chat, then try again.”* Open chat and ensure you are signed in before retrying.
+- **Validate on Cursor (experimental):** tries undocumented `cursorai.action.switchToModelSlug` (current composer) then `newAgentWithModel` / `glass.newAgentWithModel`. Payload uses `modelIdWithParams` JSON. Context / thinking stay manual. Clipboard JSON always as backup. Set `taskModelAdvisor.applyStrategy` to `clipboard-only` to skip.
+- **Cursor models:** Cursor does **not** expose Agent models through `vscode.lm`. The extension tries, in order: `vscode.lm` → Cursor CLI (`agent --list-models`, with optional `taskModelAdvisor.cursor.apiKey`) → Cursor API `GET /v1/models` → manual multi-select from `taskModelAdvisor.fallbackModels`.
+- Create a Cursor API key at [cursor.com/dashboard](https://cursor.com/dashboard) → **API Keys**, then set `taskModelAdvisor.cursor.apiKey`. Alternatively run `agent login` in a terminal so the CLI can list models.
 - **Context window tiers** are heuristic (profile defaults, Artificial Analysis `contextWindowTokens` caps, and keyword bumps for large codebases). They approximate host UI labels (`standard` / `medium` / `high`) and may not match every editor build.
 
 ## Acceptance checklist (design §12)
@@ -73,7 +74,7 @@ Manual verification before release:
 | **Windows VS Code + Copilot** — same flow | Same behavior; models match Copilot allowlist labels. |
 | **Bad / missing AA API key** or network blocked for AA | Clear error (Artificial Analysis fetch failed); command exits without crash. |
 | **Arena down** (mirror unreachable; mock in tests) | Warning in UI; ranking continues using Artificial Analysis only. |
-| **Empty `discoverSessionModels` list** | Friendly error asking to sign in and open chat (see above). |
+| **Empty `discoverSessionModels` list** | On Cursor: manual multi-select from `fallbackModels`. On VS Code+Copilot: sign in / open chat, or same fallback. |
 
 ## Development
 

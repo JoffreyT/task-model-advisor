@@ -23,6 +23,17 @@ export const DEFAULT_CONFIG: AdvisorConfig = {
   applyStrategy: "auto-then-manual",
   fetch: { timeoutMs: 8000 },
   reasoningModelPatterns: ["o1", "o3", "deepseek-r1", "extended"],
+  fallbackModels: [
+    "Grok 4.7 High Fast",
+    "Grok 4.6 Medium",
+    "Composer 2.5",
+    "Claude Opus 5.5 Medium",
+    "Claude Opus 5 High",
+    "GPT-5.6 Sol Medium",
+    "Claude Fable 5.1 High",
+    "Gemini 3.8 Flash High",
+  ],
+  cursor: { apiKey: "" },
 };
 
 function isPlainObject(value: unknown): value is Record<string, unknown> {
@@ -114,6 +125,20 @@ function mergeAdvisorConfig(
       )
     : base.reasoningModelPatterns;
 
+  const fallbackModels = Array.isArray(raw.fallbackModels)
+    ? raw.fallbackModels.filter(
+        (item): item is string => typeof item === "string"
+      )
+    : base.fallbackModels;
+
+  const cursorRaw = isPlainObject(raw.cursor) ? raw.cursor : {};
+  const cursor = {
+    apiKey:
+      typeof cursorRaw.apiKey === "string"
+        ? cursorRaw.apiKey
+        : base.cursor.apiKey,
+  };
+
   return {
     enabled,
     artificialAnalysis,
@@ -124,6 +149,8 @@ function mergeAdvisorConfig(
     applyStrategy,
     fetch: { timeoutMs },
     reasoningModelPatterns: [...reasoningModelPatterns],
+    fallbackModels: [...fallbackModels],
+    cursor,
   };
 }
 
@@ -140,6 +167,8 @@ function cloneDefaultConfig(): AdvisorConfig {
     matching: { ...DEFAULT_CONFIG.matching },
     fetch: { ...DEFAULT_CONFIG.fetch },
     reasoningModelPatterns: [...DEFAULT_CONFIG.reasoningModelPatterns],
+    fallbackModels: [...DEFAULT_CONFIG.fallbackModels],
+    cursor: { ...DEFAULT_CONFIG.cursor },
   };
 }
 

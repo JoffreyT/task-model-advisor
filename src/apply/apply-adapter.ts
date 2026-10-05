@@ -1,5 +1,11 @@
 import * as vscode from "vscode";
 import type { AdvisorConfig, Recommendation, TaskProfileId } from "../types";
+import {
+  candidateModelIds,
+  switchToModelSlugArgs,
+} from "./cursor-apply-ids";
+
+export { candidateModelIds } from "./cursor-apply-ids";
 
 export interface ClipboardPayload {
   model: string;
@@ -9,6 +15,8 @@ export interface ClipboardPayload {
   task: TaskProfileId;
   rank: number;
   scoreBreakdown: Recommendation["breakdown"];
+  blendedPricePer1M: number | null;
+  costTier: Recommendation["costTier"];
 }
 
 export function toClipboardPayload(
@@ -24,21 +32,112 @@ export function toClipboardPayload(
     task: profileId,
     rank,
     scoreBreakdown: { ...rec.breakdown },
+    blendedPricePer1M: rec.blendedPricePer1M,
+    costTier: rec.costTier,
   };
 }
 
-/**
- * Host-specific command IDs to probe for automatic model selection.
- * Populate after manual discovery on Copilot/Cursor builds; empty list is OK (clipboard fallback).
- */
-const AUTO_APPLY_COMMAND_PROBE: string[] = [];
-
 async function writeClipboardPayload(payload: ClipboardPayload): Promise<void> {
-  await vscode.env.clipboard.writeText(JSON.stringify(payload, null, 2));
+  const text = JSON.stringify(payload, null, 2);
+  await vscode.env.clipboard.writeText(text);
+}
+
+function formatPrice(rec: Recommendation): string {
+  if (rec.blendedPricePer1M != null && Number.isFinite(rec.blendedPricePer1M)) {
+    return `~$${rec.blendedPricePer1M.toFixed(2)}/1M`;
+  }
+  return "prix inconnu";
+}
+
+function isCursorHost(): boolean {
+  return vscode.env.appName.toLowerCase().includes("cursor");
 }
 
 function manualApplyMessage(rec: Recommendation): string {
-  return `Task Model Advisor: set model to "${rec.sessionModel.name}", context "${rec.contextWindow}", thinking "${rec.thinkingEffort}". Configuration copied to clipboard.`;
+  return `Task Model Advisor: modèle "${rec.sessionModel.name}" (${formatPrice(rec)}), contexte "${rec.contextWindow}", thinking "${rec.thinkingEffort}". Config copiée — applique-les manuellement dans le sélecteur Agent.`;
+}
+
+interface ApplyProbe {
+  commandId: string;
+  arg: unknown;
+  kind: "switch" | "new-agent";
+}
+
+function buildCursorApplyProbes(modelIds: string[]): ApplyProbe[] {
+  const probes: ApplyProbe[] = [];
+  for (const modelId of modelIds) {
+    const slugArgs = switchToModelSlugArgs(modelId);
+    for (const commandId of [
+      "cursorai.action.switchToModelSlug",
+      "cursorai.action.switchToModelSlugInGlass",
+      "glass.cursorai.action.switchToModelSlugInGlass",
+    ]) {
+      probes.push({ commandId, arg: slugArgs, kind: "switch" });
+    }
+    for (const commandId of ["newAgentWithModel", "glass.newAgentWithModel"]) {
+      probes.push({ commandId, arg: modelId, kind: "new-agent" });
+    }
+  }
+  return probes;
+}
+
+/**
+ * Best-effort Cursor apply via undocumented commands.
+ * Prefer switchToModelSlug (current composer); fall back to newAgentWithModel (Glass).
+ * Do NOT gate on getCommands() — many Cursor actions are registered but filtered from the list.
+ */
+async function tryApplyCursorModel(
+  rec: Recommendation
+): Promise<{ ok: boolean; commandId?: string; kind?: string; detail: string }> {
+  const modelIds = candidateModelIds(rec);
+  const probes = buildCursorApplyProbes(modelIds);
+  const errors: string[] = [];
+
+  for (const probe of probes) {
+    try {
+      await vscode.commands.executeCommand(probe.commandId, probe.arg);
+      return {
+        ok: true,
+        commandId: probe.commandId,
+        kind: probe.kind,
+        detail: `${probe.commandId} (${probe.kind})`,
+      };
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      errors.push(`${probe.commandId}: ${message}`);
+      console.warn(
+        "[Task Model Advisor] apply probe failed",
+        probe.commandId,
+        probe.arg,
+        err
+      );
+    }
+  }
+
+  // Optional diagnostic: which related commands exist in this build?
+  try {
+    const available = await vscode.commands.getCommands(true);
+    const related = available
+      .filter((id) =>
+        /model|agent|composer\.|cursorai\.|glass\./i.test(id)
+      )
+      .sort()
+      .slice(0, 40);
+    console.info(
+      "[Task Model Advisor] related commands sample:",
+      related.join(", ")
+    );
+  } catch {
+    // ignore
+  }
+
+  return {
+    ok: false,
+    detail:
+      errors.length > 0
+        ? `probes échouées (${errors.slice(0, 3).join(" | ")}${errors.length > 3 ? "…" : ""})`
+        : "aucune sonde exécutable",
+  };
 }
 
 export async function applyRecommendation(
@@ -49,35 +148,41 @@ export async function applyRecommendation(
 ): Promise<{ applied: boolean; detail: string }> {
   const payload = toClipboardPayload(rec, profileId, rank);
 
-  if (strategy === "clipboard-only") {
+  try {
     await writeClipboardPayload(payload);
+
+    if (strategy === "clipboard-only") {
+      const detail = manualApplyMessage(rec);
+      await vscode.window.showInformationMessage(detail);
+      return { applied: false, detail };
+    }
+
+    if (isCursorHost()) {
+      const result = await tryApplyCursorModel(rec);
+      if (result.ok) {
+        const via =
+          result.kind === "new-agent"
+            ? "nouvel Agent"
+            : "modèle du composer courant";
+        const detail = `Task Model Advisor: ${via} → "${rec.sessionModel.name}" (${formatPrice(rec)}) via ${result.commandId}. Context/thinking manuels (${rec.contextWindow} / ${rec.thinkingEffort}). Config aussi copiée.`;
+        await vscode.window.showInformationMessage(detail);
+        return { applied: true, detail };
+      }
+
+      const detail = `${manualApplyMessage(rec)} (${result.detail})`;
+      await vscode.window.showWarningMessage(detail);
+      return { applied: false, detail };
+    }
+
     const detail = manualApplyMessage(rec);
-    void vscode.window.showInformationMessage(detail);
+    await vscode.window.showInformationMessage(detail);
+    return { applied: false, detail };
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    const detail = `Task Model Advisor: échec validation (${message}).`;
+    await vscode.window.showErrorMessage(detail);
     return { applied: false, detail };
   }
-
-  let applied = false;
-  for (const commandId of AUTO_APPLY_COMMAND_PROBE) {
-    try {
-      await vscode.commands.executeCommand(commandId, {
-        modelId: rec.sessionModel.id,
-        model: rec.sessionModel.name,
-        contextWindow: rec.contextWindow,
-        thinkingEffort: rec.thinkingEffort,
-      });
-      applied = true;
-      break;
-    } catch {
-      // Host may not expose this command; continue probing.
-    }
-  }
-
-  await writeClipboardPayload(payload);
-  const detail = applied
-    ? `Task Model Advisor: applied "${rec.sessionModel.name}" (context "${rec.contextWindow}", thinking "${rec.thinkingEffort}"). Configuration also copied to clipboard.`
-    : manualApplyMessage(rec);
-  void vscode.window.showInformationMessage(detail);
-  return { applied, detail };
 }
 
 export async function copyRecommendationToClipboard(
@@ -85,8 +190,15 @@ export async function copyRecommendationToClipboard(
   profileId: TaskProfileId,
   rank = 1
 ): Promise<void> {
-  await writeClipboardPayload(toClipboardPayload(rec, profileId, rank));
-  void vscode.window.showInformationMessage(
-    `Task Model Advisor: copied configuration for "${rec.sessionModel.name}" to clipboard.`
-  );
+  try {
+    await writeClipboardPayload(toClipboardPayload(rec, profileId, rank));
+    await vscode.window.showInformationMessage(
+      `Task Model Advisor: config copiée pour "${rec.sessionModel.name}" (${formatPrice(rec)}).`
+    );
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    await vscode.window.showErrorMessage(
+      `Task Model Advisor: impossible de copier (${message}).`
+    );
+  }
 }

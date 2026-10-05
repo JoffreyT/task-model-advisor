@@ -39,6 +39,10 @@ export interface Recommendation {
   thinkingEffort: "off" | "low" | "medium" | "high";
   rationale: string;
   badges: Array<"matched" | "weak" | "enterprise">;
+  /** Blended USD per 1M tokens from Artificial Analysis, when known. */
+  blendedPricePer1M: number | null;
+  /** Relative cost among scored session models. */
+  costTier: "low" | "medium" | "high" | "unknown";
 }
 
 export type ArenaSource = "wulong-mirror";
@@ -64,4 +68,8 @@ export interface AdvisorConfig {
   applyStrategy: ApplyStrategy;
   fetch: { timeoutMs: number };
   reasoningModelPatterns: string[];
+  /** Used when vscode.lm.selectChatModels() is empty (typical on Cursor). */
+  fallbackModels: string[];
+  /** Optional Cursor user/service API key for `agent --list-models` / GET /v1/models. */
+  cursor: { apiKey: string };
 }
