@@ -1,11 +1,7 @@
 import type { ArenaEntry } from "../types";
 
 export type ArenaErrorCode =
-  | "unsupported_source"
-  | "http_error"
-  | "timeout"
-  | "parse_error"
-  | "empty";
+  "unsupported_source" | "http_error" | "timeout" | "parse_error" | "empty";
 
 export interface ArenaLeaderboardResult {
   entries: ArenaEntry[];
@@ -29,8 +25,7 @@ export class ArenaError extends Error {
  * GET https://api.wulong.dev/arena-ai-leaderboards/v1/leaderboard?name=<category>
  * Response: `{ models: [{ model, rank, score }] }` (score may be null).
  */
-const WULONG_LEADERBOARD_BASE =
-  "https://api.wulong.dev/arena-ai-leaderboards/v1/leaderboard";
+const WULONG_LEADERBOARD_BASE = "https://api.wulong.dev/arena-ai-leaderboards/v1/leaderboard";
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -63,17 +58,11 @@ export function resolveArenaCategoryNames(category: string): string[] {
 
 function mapArenaModels(payload: unknown): ArenaEntry[] {
   if (!isRecord(payload)) {
-    throw new ArenaError(
-      "parse_error",
-      "Arena leaderboard response is not an object"
-    );
+    throw new ArenaError("parse_error", "Arena leaderboard response is not an object");
   }
   const list = payload.models;
   if (!Array.isArray(list)) {
-    throw new ArenaError(
-      "parse_error",
-      "Arena leaderboard response has no models array"
-    );
+    throw new ArenaError("parse_error", "Arena leaderboard response has no models array");
   }
 
   const entries: ArenaEntry[] = [];
@@ -84,9 +73,7 @@ function mapArenaModels(payload: unknown): ArenaEntry[] {
     if (!model || rank === undefined) continue;
     const scoreRaw = item.score;
     const score =
-      scoreRaw === null || scoreRaw === undefined
-        ? null
-        : (readNumber(scoreRaw) ?? null);
+      scoreRaw === null || scoreRaw === undefined ? null : (readNumber(scoreRaw) ?? null);
     entries.push({ model, rank, score });
   }
   return entries;
@@ -130,10 +117,7 @@ async function fetchLeaderboardOnce(opts: {
   try {
     payload = await response.json();
   } catch {
-    throw new ArenaError(
-      "parse_error",
-      "Arena leaderboard response is not valid JSON"
-    );
+    throw new ArenaError("parse_error", "Arena leaderboard response is not valid JSON");
   }
 
   const entries = mapArenaModels(payload);
@@ -147,10 +131,7 @@ export async function fetchArenaLeaderboard(opts: {
   fetchImpl?: typeof fetch;
 }): Promise<ArenaLeaderboardResult> {
   if (opts.source !== "wulong-mirror") {
-    throw new ArenaError(
-      "unsupported_source",
-      `Unsupported arena source: ${opts.source}`
-    );
+    throw new ArenaError("unsupported_source", `Unsupported arena source: ${opts.source}`);
   }
 
   const fetchFn = opts.fetchImpl ?? fetch;

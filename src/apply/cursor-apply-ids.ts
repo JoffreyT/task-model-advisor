@@ -7,9 +7,7 @@ export interface CursorModelParam {
 
 /** Cursor model ids are usually kebab slugs (`grok-4.7`); fallbacks may be display names. */
 export function candidateModelIds(rec: Recommendation): string[] {
-  const raw = [rec.sessionModel.id, rec.sessionModel.name]
-    .map((s) => s.trim())
-    .filter(Boolean);
+  const raw = [rec.sessionModel.id, rec.sessionModel.name].map((s) => s.trim()).filter(Boolean);
   const guessed = raw.map((s) =>
     s
       .toLowerCase()
@@ -41,9 +39,7 @@ export function thinkingToEffortParams(
  * Map advisor context tier → Cursor Max Mode.
  * High-context recommendations enable Max Mode; others leave it off.
  */
-export function contextToMaxMode(
-  context: Recommendation["contextWindow"]
-): boolean {
+export function contextToMaxMode(context: Recommendation["contextWindow"]): boolean {
   return context === "high";
 }
 
@@ -59,10 +55,7 @@ export function buildSwitchParams(rec: Recommendation): CursorModelParam[] {
   return params;
 }
 
-export function switchToModelSlugArgs(
-  modelId: string,
-  params: CursorModelParam[] = []
-): object {
+export function switchToModelSlugArgs(modelId: string, params: CursorModelParam[] = []): object {
   // Observed in Cursor desktop: modelIdWithParams is a JSON string
   // `{ modelId, params: [{ id, value }, ...] }` (params may be empty).
   return {
@@ -76,10 +69,7 @@ export function switchToModelSlugArgs(
  * `glass.cursorai.action.switchToModelSlugInGlass` / setModelConfig("composer", …).
  * Used as a secondary probe to set maxMode (not covered by modelIdWithParams).
  */
-export function composerModelConfigArgs(
-  modelId: string,
-  rec: Recommendation
-): object {
+export function composerModelConfigArgs(modelId: string, rec: Recommendation): object {
   const params = buildSwitchParams(rec);
   return {
     modelName: modelId,

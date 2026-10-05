@@ -1,8 +1,5 @@
 import { describe, it, expect } from "vitest";
-import {
-  absoluteCostScore,
-  rankRecommendations,
-} from "../ranking/task-ranker";
+import { absoluteCostScore, rankRecommendations } from "../ranking/task-ranker";
 import { matchModels } from "../matching/model-matcher";
 
 describe("rankRecommendations", () => {
@@ -510,10 +507,38 @@ describe("absoluteCostScore", () => {
 
 describe("matcher + ranker integration", () => {
   const benches = [
-    { slug: "gpt-4o", name: "GPT-4o", intelligence: 85, coding: 70, blendedPricePer1M: 5, evaluations: {} },
-    { slug: "gpt-4o-mini", name: "GPT-4o mini", intelligence: 70, coding: 65, blendedPricePer1M: 0.3, evaluations: {} },
-    { slug: "claude-3-5-sonnet", name: "Claude 3.5 Sonnet", intelligence: 88, coding: 75, blendedPricePer1M: 6, evaluations: {} },
-    { slug: "deepseek-coder", name: "DeepSeek Coder", intelligence: 75, coding: 92, blendedPricePer1M: 0.4, evaluations: { livecodebench: 0.85 } },
+    {
+      slug: "gpt-4o",
+      name: "GPT-4o",
+      intelligence: 85,
+      coding: 70,
+      blendedPricePer1M: 5,
+      evaluations: {},
+    },
+    {
+      slug: "gpt-4o-mini",
+      name: "GPT-4o mini",
+      intelligence: 70,
+      coding: 65,
+      blendedPricePer1M: 0.3,
+      evaluations: {},
+    },
+    {
+      slug: "claude-3-5-sonnet",
+      name: "Claude 3.5 Sonnet",
+      intelligence: 88,
+      coding: 75,
+      blendedPricePer1M: 6,
+      evaluations: {},
+    },
+    {
+      slug: "deepseek-coder",
+      name: "DeepSeek Coder",
+      intelligence: 75,
+      coding: 92,
+      blendedPricePer1M: 0.4,
+      evaluations: { livecodebench: 0.85 },
+    },
   ];
 
   it("ranks alias-matched enterprise mini for cost-sensitive userStory", () => {

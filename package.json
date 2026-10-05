@@ -4,9 +4,12 @@
   "description": "Recommend the best available LLM (model, context, thinking) for a task using live benchmarks.",
   "version": "0.1.0",
   "publisher": "local",
-  "engines": { "vscode": "^1.90.0" },
-  "categories": ["Other"],
-  "activationEvents": ["onCommand:taskModelAdvisor.recommend"],
+  "engines": {
+    "vscode": "^1.90.0"
+  },
+  "categories": [
+    "Other"
+  ],
   "main": "./out/extension.js",
   "contributes": {
     "commands": [
@@ -25,7 +28,10 @@
     "configuration": {
       "title": "Task Model Advisor",
       "properties": {
-        "taskModelAdvisor.enabled": { "type": "boolean", "default": true },
+        "taskModelAdvisor.enabled": {
+          "type": "boolean",
+          "default": true
+        },
         "taskModelAdvisor.artificialAnalysis.apiKey": {
           "type": "string",
           "default": "",
@@ -34,7 +40,9 @@
         "taskModelAdvisor.arena.source": {
           "type": "string",
           "default": "wulong-mirror",
-          "enum": ["wulong-mirror"]
+          "enum": [
+            "wulong-mirror"
+          ]
         },
         "taskModelAdvisor.arena.categories": {
           "type": "object",
@@ -48,12 +56,18 @@
         },
         "taskModelAdvisor.ranking.weights": {
           "type": "object",
-          "default": { "taskFit": 0.45, "arena": 0.25, "cost": 0.3 }
+          "default": {
+            "taskFit": 0.45,
+            "arena": 0.25,
+            "cost": 0.3
+          }
         },
         "taskModelAdvisor.modelAliases": {
           "type": "object",
           "default": {},
-          "additionalProperties": { "type": "string" }
+          "additionalProperties": {
+            "type": "string"
+          }
         },
         "taskModelAdvisor.matching.fuzzyThreshold": {
           "type": "number",
@@ -64,7 +78,10 @@
         "taskModelAdvisor.applyStrategy": {
           "type": "string",
           "default": "auto-then-manual",
-          "enum": ["auto-then-manual", "clipboard-only"]
+          "enum": [
+            "auto-then-manual",
+            "clipboard-only"
+          ]
         },
         "taskModelAdvisor.fetch.timeoutMs": {
           "type": "number",
@@ -72,12 +89,21 @@
         },
         "taskModelAdvisor.reasoningModelPatterns": {
           "type": "array",
-          "items": { "type": "string" },
-          "default": ["o1", "o3", "deepseek-r1", "extended"]
+          "items": {
+            "type": "string"
+          },
+          "default": [
+            "o1",
+            "o3",
+            "deepseek-r1",
+            "extended"
+          ]
         },
         "taskModelAdvisor.fallbackModels": {
           "type": "array",
-          "items": { "type": "string" },
+          "items": {
+            "type": "string"
+          },
           "default": [
             "Grok 4.7 High Fast",
             "Grok 4.6 Medium",
@@ -104,14 +130,36 @@
     "watch": "tsc -watch -p ./",
     "test": "vitest run",
     "test:watch": "vitest",
+    "lint": "eslint src --max-warnings 0",
+    "lint:fix": "eslint src --fix",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
     "eval:ranking": "vitest run ranking-eval --reporter=verbose",
-    "package": "vsce package"
+    "package": "vsce package",
+    "prepare": "husky"
+  },
+  "lint-staged": {
+    "src/**/*.ts": [
+      "eslint --max-warnings 0",
+      "prettier --check"
+    ],
+    "*.{md,json,mjs,yml,yaml}": [
+      "prettier --check"
+    ]
   },
   "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@types/eslint__js": "^8.42.3",
     "@types/node": "^20.11.0",
     "@types/vscode": "^1.90.0",
     "@vscode/vsce": "^3.0.0",
+    "eslint": "^10.12.0",
+    "eslint-config-prettier": "^10.1.8",
+    "husky": "^9.1.7",
+    "lint-staged": "^17.6.0",
+    "prettier": "^3.9.9",
     "typescript": "^5.4.0",
+    "typescript-eslint": "^8.71.1",
     "vitest": "^2.0.0"
   }
 }

@@ -19,9 +19,7 @@ describe("TASK_PRESETS", () => {
 
 describe("classifyOther", () => {
   it("maps python automation keywords to pythonScript", () => {
-    expect(classifyOther("écrire un script python pour scraper")).toBe(
-      "pythonScript"
-    );
+    expect(classifyOther("écrire un script python pour scraper")).toBe("pythonScript");
   });
   it("maps user story keywords", () => {
     expect(classifyOther("rédiger une user story Jira")).toBe("userStory");

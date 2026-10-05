@@ -1,20 +1,13 @@
 import type { BenchmarkModel } from "../types";
 
 export type ArtificialAnalysisErrorCode =
-  | "missing_api_key"
-  | "http_error"
-  | "timeout"
-  | "parse_error";
+  "missing_api_key" | "http_error" | "timeout" | "parse_error";
 
 export class ArtificialAnalysisError extends Error {
   readonly code: ArtificialAnalysisErrorCode;
   readonly status?: number;
 
-  constructor(
-    code: ArtificialAnalysisErrorCode,
-    message: string,
-    status?: number
-  ) {
+  constructor(code: ArtificialAnalysisErrorCode, message: string, status?: number) {
     super(message);
     this.name = "ArtificialAnalysisError";
     this.code = code;
@@ -37,8 +30,7 @@ export class ArtificialAnalysisError extends Error {
  * - pricing.price_1m_blended_3_to_1 → blendedPricePer1M
  * - context_window_tokens → contextWindowTokens
  */
-const MODELS_URL =
-  "https://artificialanalysis.ai/api/v2/data/llms/models";
+const MODELS_URL = "https://artificialanalysis.ai/api/v2/data/llms/models";
 
 const INTELLIGENCE_KEY = "artificial_analysis_intelligence_index";
 const CODING_KEY = "artificial_analysis_coding_index";
@@ -56,9 +48,7 @@ function readNumber(value: unknown): number | undefined {
   return undefined;
 }
 
-function normalizeEvaluations(
-  raw: unknown
-): Record<string, number | null> {
+function normalizeEvaluations(raw: unknown): Record<string, number | null> {
   if (!isRecord(raw)) return {};
   const out: Record<string, number | null> = {};
   for (const [key, val] of Object.entries(raw)) {
@@ -94,32 +84,22 @@ function mapAaItem(item: Record<string, unknown>): BenchmarkModel | null {
     readNumber(item.intelligence_index);
 
   const coding =
-    evaluations[CODING_KEY] ??
-    readNumber(item[CODING_KEY]) ??
-    readNumber(item.coding_index);
+    evaluations[CODING_KEY] ?? readNumber(item[CODING_KEY]) ?? readNumber(item.coding_index);
 
   const blendedPricePer1M =
-    readNumber(pricing?.price_1m_blended_3_to_1) ??
-    readNumber(item.price_1m_blended_3_to_1);
+    readNumber(pricing?.price_1m_blended_3_to_1) ?? readNumber(item.price_1m_blended_3_to_1);
 
   const contextWindowTokens =
-    readNumber(item.context_window_tokens) ??
-    readNumber(item.contextWindowTokens);
+    readNumber(item.context_window_tokens) ?? readNumber(item.contextWindowTokens);
 
   return {
     slug,
     name,
     ...(creatorSlug ? { creatorSlug } : {}),
-    ...(intelligence !== undefined && intelligence !== null
-      ? { intelligence }
-      : {}),
+    ...(intelligence !== undefined && intelligence !== null ? { intelligence } : {}),
     ...(coding !== undefined && coding !== null ? { coding } : {}),
-    ...(blendedPricePer1M !== undefined
-      ? { blendedPricePer1M }
-      : {}),
-    ...(contextWindowTokens !== undefined
-      ? { contextWindowTokens }
-      : {}),
+    ...(blendedPricePer1M !== undefined ? { blendedPricePer1M } : {}),
+    ...(contextWindowTokens !== undefined ? { contextWindowTokens } : {}),
     evaluations,
   };
 }
@@ -153,10 +133,7 @@ export async function fetchArtificialAnalysisModels(opts: {
 }): Promise<BenchmarkModel[]> {
   const apiKey = opts.apiKey.trim();
   if (!apiKey) {
-    throw new ArtificialAnalysisError(
-      "missing_api_key",
-      "Artificial Analysis API key is required"
-    );
+    throw new ArtificialAnalysisError("missing_api_key", "Artificial Analysis API key is required");
   }
 
   const fetchFn = opts.fetchImpl ?? fetch;
@@ -200,9 +177,7 @@ export async function fetchArtificialAnalysisModels(opts: {
   }
 
   const items = extractModelList(payload);
-  const models = items
-    .map(mapAaItem)
-    .filter((m): m is BenchmarkModel => m !== null);
+  const models = items.map(mapAaItem).filter((m): m is BenchmarkModel => m !== null);
 
   if (models.length === 0 && items.length > 0) {
     throw new ArtificialAnalysisError(

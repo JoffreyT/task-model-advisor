@@ -40,10 +40,7 @@ function isPlainObject(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
-function mergeRecord(
-  base: Record<string, string>,
-  override: unknown
-): Record<string, string> {
+function mergeRecord(base: Record<string, string>, override: unknown): Record<string, string> {
   if (!isPlainObject(override)) {
     return { ...base };
   }
@@ -56,12 +53,8 @@ function mergeRecord(
   return merged;
 }
 
-function mergeAdvisorConfig(
-  base: AdvisorConfig,
-  raw: Record<string, unknown>
-): AdvisorConfig {
-  const enabled =
-    typeof raw.enabled === "boolean" ? raw.enabled : base.enabled;
+function mergeAdvisorConfig(base: AdvisorConfig, raw: Record<string, unknown>): AdvisorConfig {
+  const enabled = typeof raw.enabled === "boolean" ? raw.enabled : base.enabled;
 
   const artificialAnalysis = isPlainObject(raw.artificialAnalysis)
     ? {
@@ -73,30 +66,19 @@ function mergeAdvisorConfig(
     : base.artificialAnalysis;
 
   const arenaRaw = isPlainObject(raw.arena) ? raw.arena : {};
-  const arenaSource =
-    arenaRaw.source === "wulong-mirror" ? arenaRaw.source : base.arena.source;
+  const arenaSource = arenaRaw.source === "wulong-mirror" ? arenaRaw.source : base.arena.source;
   const arenaCategories = mergeRecord(
     base.arena.categories,
     arenaRaw.categories
   ) as AdvisorConfig["arena"]["categories"];
 
   const rankingRaw = isPlainObject(raw.ranking) ? raw.ranking : {};
-  const weightsRaw = isPlainObject(rankingRaw.weights)
-    ? rankingRaw.weights
-    : {};
+  const weightsRaw = isPlainObject(rankingRaw.weights) ? rankingRaw.weights : {};
   const rankingWeights = {
     taskFit:
-      typeof weightsRaw.taskFit === "number"
-        ? weightsRaw.taskFit
-        : base.ranking.weights.taskFit,
-    arena:
-      typeof weightsRaw.arena === "number"
-        ? weightsRaw.arena
-        : base.ranking.weights.arena,
-    cost:
-      typeof weightsRaw.cost === "number"
-        ? weightsRaw.cost
-        : base.ranking.weights.cost,
+      typeof weightsRaw.taskFit === "number" ? weightsRaw.taskFit : base.ranking.weights.taskFit,
+    arena: typeof weightsRaw.arena === "number" ? weightsRaw.arena : base.ranking.weights.arena,
+    cost: typeof weightsRaw.cost === "number" ? weightsRaw.cost : base.ranking.weights.cost,
   };
 
   const modelAliases = mergeRecord(base.modelAliases, raw.modelAliases);
@@ -108,35 +90,25 @@ function mergeAdvisorConfig(
       : base.matching.fuzzyThreshold;
 
   const applyStrategy =
-    raw.applyStrategy === "auto-then-manual" ||
-    raw.applyStrategy === "clipboard-only"
+    raw.applyStrategy === "auto-then-manual" || raw.applyStrategy === "clipboard-only"
       ? raw.applyStrategy
       : base.applyStrategy;
 
   const fetchRaw = isPlainObject(raw.fetch) ? raw.fetch : {};
   const timeoutMs =
-    typeof fetchRaw.timeoutMs === "number"
-      ? fetchRaw.timeoutMs
-      : base.fetch.timeoutMs;
+    typeof fetchRaw.timeoutMs === "number" ? fetchRaw.timeoutMs : base.fetch.timeoutMs;
 
   const reasoningModelPatterns = Array.isArray(raw.reasoningModelPatterns)
-    ? raw.reasoningModelPatterns.filter(
-        (item): item is string => typeof item === "string"
-      )
+    ? raw.reasoningModelPatterns.filter((item): item is string => typeof item === "string")
     : base.reasoningModelPatterns;
 
   const fallbackModels = Array.isArray(raw.fallbackModels)
-    ? raw.fallbackModels.filter(
-        (item): item is string => typeof item === "string"
-      )
+    ? raw.fallbackModels.filter((item): item is string => typeof item === "string")
     : base.fallbackModels;
 
   const cursorRaw = isPlainObject(raw.cursor) ? raw.cursor : {};
   const cursor = {
-    apiKey:
-      typeof cursorRaw.apiKey === "string"
-        ? cursorRaw.apiKey
-        : base.cursor.apiKey,
+    apiKey: typeof cursorRaw.apiKey === "string" ? cursorRaw.apiKey : base.cursor.apiKey,
   };
 
   return {

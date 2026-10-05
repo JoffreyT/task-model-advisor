@@ -35,9 +35,7 @@ export async function discoverSessionModels(opts?: {
       timeoutMs: opts?.timeoutMs ?? 8000,
     });
     if (cursor.models.length > 0) {
-      warnings.push(
-        `Session models loaded from Cursor (${cursor.source}).`
-      );
+      warnings.push(`Session models loaded from Cursor (${cursor.source}).`);
       return { models: cursor.models, warnings };
     }
     if (cursor.detail) {

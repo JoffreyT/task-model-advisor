@@ -34,27 +34,21 @@ function fakeRec(
 
 describe("candidateModelIds", () => {
   it("keeps cursor slug ids and adds kebab guess from display name", () => {
-    const ids = candidateModelIds(
-      fakeRec({ id: "glm-5.3-flash", name: "GLM 5.3 Flash" })
-    );
+    const ids = candidateModelIds(fakeRec({ id: "glm-5.3-flash", name: "GLM 5.3 Flash" }));
     expect(ids[0]).toBe("glm-5.3-flash");
     expect(ids).toContain("GLM 5.3 Flash");
     expect(ids).toHaveLength(2);
   });
 
   it("dedupes when id equals name", () => {
-    const ids = candidateModelIds(
-      fakeRec({ id: "composer-2.5", name: "composer-2.5" })
-    );
+    const ids = candidateModelIds(fakeRec({ id: "composer-2.5", name: "composer-2.5" }));
     expect(ids).toEqual(["composer-2.5"]);
   });
 });
 
 describe("thinking / context mapping", () => {
   it("maps thinking to effort params and omits when off", () => {
-    expect(thinkingToEffortParams("medium")).toEqual([
-      { id: "effort", value: "medium" },
-    ]);
+    expect(thinkingToEffortParams("medium")).toEqual([{ id: "effort", value: "medium" }]);
     expect(thinkingToEffortParams("off")).toEqual([]);
   });
 
@@ -65,20 +59,16 @@ describe("thinking / context mapping", () => {
   });
 
   it("builds switch params with effort and context hints", () => {
-    expect(
-      buildSwitchParams(
-        fakeRec({ thinkingEffort: "high", contextWindow: "high" })
-      )
-    ).toEqual([
+    expect(buildSwitchParams(fakeRec({ thinkingEffort: "high", contextWindow: "high" }))).toEqual([
       { id: "effort", value: "high" },
       { id: "context", value: "high" },
     ]);
   });
 
   it("embeds params in switchToModelSlug args", () => {
-    const args = switchToModelSlugArgs("grok-4.6", [
-      { id: "effort", value: "medium" },
-    ]) as { modelIdWithParams: string };
+    const args = switchToModelSlugArgs("grok-4.6", [{ id: "effort", value: "medium" }]) as {
+      modelIdWithParams: string;
+    };
     expect(JSON.parse(args.modelIdWithParams)).toEqual({
       modelId: "grok-4.6",
       params: [{ id: "effort", value: "medium" }],

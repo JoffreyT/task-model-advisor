@@ -4,9 +4,7 @@ import { normalizeModelKey, similarity } from "../matching/normalize";
 describe("normalizeModelKey", () => {
   it("lowercases and strips enterprise/date noise", () => {
     expect(normalizeModelKey("GPT-4o (Entreprise)")).toContain("gpt");
-    expect(normalizeModelKey("gpt-4o-2024-08-06")).toBe(
-      normalizeModelKey("gpt-4o")
-    );
+    expect(normalizeModelKey("gpt-4o-2024-08-06")).toBe(normalizeModelKey("gpt-4o"));
   });
 
   it("replaces underscores and dots with hyphens", () => {
@@ -25,9 +23,7 @@ describe("normalizeModelKey", () => {
 describe("similarity", () => {
   it("is high for near-identical strings", () => {
     expect(similarity("gpt-4o", "gpt-4o")).toBe(1);
-    expect(similarity("claude-3-5-sonnet", "claude-3.5-sonnet")).toBeGreaterThan(
-      0.7
-    );
+    expect(similarity("claude-3-5-sonnet", "claude-3.5-sonnet")).toBeGreaterThan(0.7);
   });
 
   it("is low for unrelated strings", () => {
@@ -35,8 +31,6 @@ describe("similarity", () => {
   });
 
   it("matches spaced display names to slugs above threshold", () => {
-    expect(similarity("Claude Sonnet 4", "claude-sonnet-4")).toBeGreaterThan(
-      0.72
-    );
+    expect(similarity("Claude Sonnet 4", "claude-sonnet-4")).toBeGreaterThan(0.72);
   });
 });

@@ -9,16 +9,10 @@ export interface MatchedModel {
 }
 
 function isEnterprise(session: SessionModel): boolean {
-  return (
-    /enterprise|entreprise/i.test(session.id) ||
-    /enterprise|entreprise/i.test(session.name)
-  );
+  return /enterprise|entreprise/i.test(session.id) || /enterprise|entreprise/i.test(session.name);
 }
 
-function benchmarkScore(
-  session: SessionModel,
-  benchmark: BenchmarkModel
-): number {
+function benchmarkScore(session: SessionModel, benchmark: BenchmarkModel): number {
   const nameNorm = normalizeModelKey(session.name);
   const idNorm = normalizeModelKey(session.id);
   const benchNameNorm = normalizeModelKey(benchmark.name);
@@ -41,8 +35,7 @@ function matchOne(
   const aliasSlug = aliases[session.id] ?? aliases[session.name];
 
   if (aliasSlug) {
-    const benchmark =
-      benchmarks.find((b) => b.slug === aliasSlug) ?? null;
+    const benchmark = benchmarks.find((b) => b.slug === aliasSlug) ?? null;
     if (benchmark) {
       const badges: MatchQuality[] = ["matched"];
       if (enterprise) badges.push("enterprise");

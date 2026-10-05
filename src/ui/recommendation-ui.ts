@@ -40,8 +40,7 @@ function formatCostLabel(rec: Recommendation): string {
 }
 
 function formatRecommendationItem(rec: Recommendation, index: number): RecQuickPickItem {
-  const badges =
-    rec.badges.length > 0 ? rec.badges.join(", ") : "no-badge";
+  const badges = rec.badges.length > 0 ? rec.badges.join(", ") : "no-badge";
   return {
     label: `$(sparkle) ${rec.sessionModel.name}`,
     description: `${formatCostLabel(rec)} · ${rec.contextWindow} · think:${rec.thinkingEffort}`,
@@ -74,10 +73,9 @@ export async function showRecommendations(
   );
   if (!selected) return undefined;
 
-  const action = await vscode.window.showQuickPick<ActionQuickPickItem>(
-    ACTIONS,
-    { placeHolder: "Action" }
-  );
+  const action = await vscode.window.showQuickPick<ActionQuickPickItem>(ACTIONS, {
+    placeHolder: "Action",
+  });
   if (!action) return undefined;
 
   return { action: action.actionId, index: selected.index };

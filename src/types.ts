@@ -1,9 +1,4 @@
-export type TaskProfileId =
-  | "spec"
-  | "userStory"
-  | "testScenario"
-  | "pythonScript"
-  | "other";
+export type TaskProfileId = "spec" | "userStory" | "testScenario" | "pythonScript" | "other";
 
 export interface SessionModel {
   id: string;

@@ -50,20 +50,20 @@ On each invocation, the extension:
 
 ### 3.1 Entry points (v1)
 
-| Trigger | Behavior |
-|--------|----------|
+| Trigger                                                    | Behavior                                                         |
+| ---------------------------------------------------------- | ---------------------------------------------------------------- |
 | Command palette / `Cmd+Option+R` (`Ctrl+Alt+R` on Windows) | Primary: **Task Model Advisor: Recommend a model for this task** |
 
 SessionStart hooks and other automatic entry points are deferred to **v2** (§14).
 
 ### 3.2 Flow
 
-1. **Task selection (QuickPick)**  
-   - Écrire une spec  
-   - Écrire une user story  
-   - Écrire un scénario de test  
-   - Écrire un script Python pour automatiser une action  
-   - **Autre** → multiline input for a custom task description  
+1. **Task selection (QuickPick)**
+   - Écrire une spec
+   - Écrire une user story
+   - Écrire un scénario de test
+   - Écrire un script Python pour automatiser une action
+   - **Autre** → multiline input for a custom task description
 
 2. **Loading**  
    Progress notification: fetching benchmarks (target: complete within ~3 s on a typical connection; show error if timeout).
@@ -76,10 +76,10 @@ SessionStart hooks and other automatic entry points are deferred to **v2** (§14
    - Short rationale (task fit, Arena category rank if matched, relative cost from Artificial Analysis)
    - Match-quality badge (see §3.4)
 
-4. **Actions**  
-   - **Validate this option** — run Apply adapter (§6)  
-   - **Copy configuration** — JSON to clipboard  
-   - **Refresh benchmarks** — repeat network fetch and re-rank  
+4. **Actions**
+   - **Validate this option** — run Apply adapter (§6)
+   - **Copy configuration** — JSON to clipboard
+   - **Refresh benchmarks** — repeat network fetch and re-rank
 
 ### 3.3 Validate semantics
 
@@ -91,10 +91,10 @@ The user remains in control; the extension does not send prompts to an LLM for r
 
 Each recommendation row may show a badge that describes **how confidently** the session model was linked to benchmark data (Artificial Analysis / Arena). These are UI labels only; they do not change the Apply flow.
 
-| Badge | Meaning |
-|-------|---------|
-| **Matched** | The session model was mapped to a benchmark row with high confidence (alias exact, or fuzzy score ≥ threshold). Rank uses full AA + Arena scores. |
-| **Weak match** | The model is available in the session, but no solid benchmark mapping (name too different, missing from AA/Arena). Shown only as filler when fewer than three strong matches exist; rank is heuristic / name-based, not benchmark-backed. |
+| Badge          | Meaning                                                                                                                                                                                                                                                                                                 |
+| -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Matched**    | The session model was mapped to a benchmark row with high confidence (alias exact, or fuzzy score ≥ threshold). Rank uses full AA + Arena scores.                                                                                                                                                       |
+| **Weak match** | The model is available in the session, but no solid benchmark mapping (name too different, missing from AA/Arena). Shown only as filler when fewer than three strong matches exist; rank is heuristic / name-based, not benchmark-backed.                                                               |
 | **Enterprise** | Optional hint that the host display name looks like a corporate/allowlisted variant (e.g. `…-enterprise`, org-prefixed id). Ranking still uses the aliased public benchmark sibling when an alias exists; the badge warns the user that the label in Copilot/Cursor may differ from public brand names. |
 
 Example: Copilot shows `GPT-4o (entreprise)`. Alias maps it to AA slug `gpt-4o` → badge **Matched** (+ optionally **Enterprise**). If no alias and fuzzy match fails → may appear as **Weak match** if needed to fill the top 3.
@@ -129,16 +129,16 @@ Example: Copilot shows `GPT-4o (entreprise)`. Alias maps it to AA slug `gpt-4o` 
 
 ### 4.1 Modules
 
-| Module | Responsibility |
-|--------|----------------|
-| `task-picker` | QuickPick presets + custom text |
-| `host-model-discovery` | Enumerate chat models for current host |
+| Module                          | Responsibility                                         |
+| ------------------------------- | ------------------------------------------------------ |
+| `task-picker`                   | QuickPick presets + custom text                        |
+| `host-model-discovery`          | Enumerate chat models for current host                 |
 | `providers/artificial-analysis` | Fetch and normalize model list + evaluations + pricing |
-| `providers/arena` | Fetch category leaderboard (Elo-style scores) |
-| `model-matcher` | Map host model IDs/names to benchmark records |
-| `task-ranker` | Composite score + top-3 selection |
-| `recommendation-ui` | QuickPick/Webview + clipboard |
-| `apply-adapter` | VS Code vs Cursor apply strategies |
+| `providers/arena`               | Fetch category leaderboard (Elo-style scores)          |
+| `model-matcher`                 | Map host model IDs/names to benchmark records          |
+| `task-ranker`                   | Composite score + top-3 selection                      |
+| `recommendation-ui`             | QuickPick/Webview + clipboard                          |
+| `apply-adapter`                 | VS Code vs Cursor apply strategies                     |
 
 All ranking and matching run **locally** after fetch. No user prompt content is sent to third parties except what the user typed for **Autre** (used only locally for keyword-based profile selection unless future versions add optional cloud classification).
 
@@ -193,13 +193,13 @@ Recommendations are **only** drawn from discovered session models. Benchmark dat
 
 ### 7.1 Preset → profile
 
-| Preset | Primary AA signals | Arena category (default) | Default context | Default thinking |
-|--------|-------------------|---------------------------|-----------------|------------------|
-| Écrire une spec | Intelligence index, GDPval / writing-oriented indices | `text` | Medium–High | Medium |
-| Écrire une user story | Intelligence (lower weight than spec) | `text` | Standard–Medium | Low–Medium |
-| Écrire un scénario de test | Intelligence, structure/IF-oriented indices if present | `hard_prompts` or closest available | Medium | Medium |
-| Script Python (automation) | **Coding index**, LiveCodeBench | `coding` | Standard (raise if user indicates large codebase in custom text) | Medium |
-| Autre | Keyword classifier → nearest preset profile | Same as inferred profile | Medium | Medium |
+| Preset                     | Primary AA signals                                     | Arena category (default)            | Default context                                                  | Default thinking |
+| -------------------------- | ------------------------------------------------------ | ----------------------------------- | ---------------------------------------------------------------- | ---------------- |
+| Écrire une spec            | Intelligence index, GDPval / writing-oriented indices  | `text`                              | Medium–High                                                      | Medium           |
+| Écrire une user story      | Intelligence (lower weight than spec)                  | `text`                              | Standard–Medium                                                  | Low–Medium       |
+| Écrire un scénario de test | Intelligence, structure/IF-oriented indices if present | `hard_prompts` or closest available | Medium                                                           | Medium           |
+| Script Python (automation) | **Coding index**, LiveCodeBench                        | `coding`                            | Standard (raise if user indicates large codebase in custom text) | Medium           |
+| Autre                      | Keyword classifier → nearest preset profile            | Same as inferred profile            | Medium                                                           | Medium           |
 
 For **Autre**, a lightweight local keyword map (French + English) selects the nearest profile; no LLM call in v1.
 
@@ -253,10 +253,10 @@ Context suggestion remains heuristic (not from AA) unless context window field i
 
 ### 8.2 Host matrix (expectations)
 
-| Host | Model selection | Context / thinking |
-|------|-----------------|---------------------|
+| Host              | Model selection                              | Context / thinking                          |
+| ----------------- | -------------------------------------------- | ------------------------------------------- |
 | VS Code + Copilot | Best-effort via commands/API; may be partial | Often manual; UI lists exact values to pick |
-| Cursor | Best-effort; API surface may differ | Often manual; same clipboard fallback |
+| Cursor            | Best-effort; API surface may differ          | Often manual; same clipboard fallback       |
 
 v1 acceptance: **Validate** succeeds automatically on at least one target environment in manual test matrix; other environments degrade gracefully without errors.
 
@@ -295,24 +295,24 @@ v1 acceptance: **Validate** succeeds automatically on at least one target enviro
 
 ## 10. Technical stack
 
-| Area | Choice |
-|------|--------|
-| Language | TypeScript |
-| Extension API | `vscode.commands`, `vscode.window` (QuickPick, progress, notifications), `vscode.lm.selectChatModels` |
-| Packaging | Standard VS Code extension (`vsce`), engines compatible with VS Code 1.90+ and Cursor (verify each release) |
-| Tests | Unit tests for `model-matcher`, `task-ranker`, profile mapping; fixture JSON for AA/Arena responses |
-| Dependencies | Minimal HTTP client (`fetch`); no WASM tokenizer in v1 |
+| Area          | Choice                                                                                                      |
+| ------------- | ----------------------------------------------------------------------------------------------------------- |
+| Language      | TypeScript                                                                                                  |
+| Extension API | `vscode.commands`, `vscode.window` (QuickPick, progress, notifications), `vscode.lm.selectChatModels`       |
+| Packaging     | Standard VS Code extension (`vsce`), engines compatible with VS Code 1.90+ and Cursor (verify each release) |
+| Tests         | Unit tests for `model-matcher`, `task-ranker`, profile mapping; fixture JSON for AA/Arena responses         |
+| Dependencies  | Minimal HTTP client (`fetch`); no WASM tokenizer in v1                                                      |
 
 ---
 
 ## 11. Performance and reliability
 
-| Criterion | Target |
-|-----------|--------|
-| Time to show recommendations after task selection | ≤ 3 s p95 with warm network; hard timeout `fetch.timeoutMs` (default 8 s) |
-| Memory | ≤ 30 MB incremental for extension host during command |
-| Offline | Command fails clearly if AA key missing or network unreachable; no silent stale cache in v1 (user chose fresh fetch each invocation) |
-| Rate limits | One AA list call per invocation; document daily quota for free tier |
+| Criterion                                         | Target                                                                                                                               |
+| ------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| Time to show recommendations after task selection | ≤ 3 s p95 with warm network; hard timeout `fetch.timeoutMs` (default 8 s)                                                            |
+| Memory                                            | ≤ 30 MB incremental for extension host during command                                                                                |
+| Offline                                           | Command fails clearly if AA key missing or network unreachable; no silent stale cache in v1 (user chose fresh fetch each invocation) |
+| Rate limits                                       | One AA list call per invocation; document daily quota for free tier                                                                  |
 
 ---
 
@@ -329,13 +329,13 @@ v1 acceptance: **Validate** succeeds automatically on at least one target enviro
 
 ## 13. Risks and mitigations
 
-| Risk | Mitigation |
-|------|------------|
+| Risk                                             | Mitigation                                                                    |
+| ------------------------------------------------ | ----------------------------------------------------------------------------- |
 | Copilot/Cursor cannot set model programmatically | Document manual steps; clipboard JSON; iterate Apply adapter per host version |
-| Arena mirror downtime or ToS change | Pluggable provider; AA-only fallback |
-| AA free tier rate limit | Single batch fetch; user messaging on 429 |
-| Fuzzy match wrong model | Aliases + threshold tuning + Weak match badge |
-| Work proxy blocks API | Clear error; optional custom API base URL setting (future) |
+| Arena mirror downtime or ToS change              | Pluggable provider; AA-only fallback                                          |
+| AA free tier rate limit                          | Single batch fetch; user messaging on 429                                     |
+| Fuzzy match wrong model                          | Aliases + threshold tuning + Weak match badge                                 |
+| Work proxy blocks API                            | Clear error; optional custom API base URL setting (future)                    |
 
 ---
 
@@ -360,8 +360,8 @@ v1 ships with a **fixed** QuickPick of five task presets (§3.2) and a manual co
 
 ## 15. Revision history
 
-| Date | Change |
-|------|--------|
+| Date       | Change                                                                                                                                                                 |
+| ---------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | 2026-03-22 | Initial design from brainstorming: shifted from real-time local scoring to task-based benchmark routing; session-only models; invocation-time fetch; top 3 + Validate. |
-| 2026-03-22 | Clarified match-quality badges (§3.4); moved SessionStart + customizable QuickPick to explicit **v2** (§14); removed “Optional v1.1”. |
-| 2026-03-22 | Renamed product/repo to **Task Model Advisor** / `task-model-advisor` (avoid Marketplace clash with Prompt Router). |
+| 2026-03-22 | Clarified match-quality badges (§3.4); moved SessionStart + customizable QuickPick to explicit **v2** (§14); removed “Optional v1.1”.                                  |
+| 2026-03-22 | Renamed product/repo to **Task Model Advisor** / `task-model-advisor` (avoid Marketplace clash with Prompt Router).                                                    |

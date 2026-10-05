@@ -22,12 +22,8 @@ Claude Opus 5.5 Medium
   });
 
   it("skips auth / empty messages", () => {
-    expect(
-      parseAgentModelsOutput("Authentication required\nNot logged in\n")
-    ).toEqual([]);
-    expect(parseAgentModelsOutput("No models available for this account.")).toEqual(
-      []
-    );
+    expect(parseAgentModelsOutput("Authentication required\nNot logged in\n")).toEqual([]);
+    expect(parseAgentModelsOutput("No models available for this account.")).toEqual([]);
   });
 
   it("dedupes by id case-insensitively", () => {

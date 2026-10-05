@@ -70,10 +70,12 @@ task-model-advisor/
 ### Task 1: Extension scaffold + Vitest
 
 **Files:**
+
 - Create: `package.json`, `tsconfig.json`, `vitest.config.ts`, `.vscodeignore`, `.gitignore`, `src/extension.ts`, `README.md`
 - Modify: existing `.gitignore` if present
 
 **Interfaces:**
+
 - Produces: package id `task-model-advisor`, command `taskModelAdvisor.recommend`, activation on command
 
 - [ ] **Step 1: Write `package.json`**
@@ -213,14 +215,11 @@ export default defineConfig({
 import * as vscode from "vscode";
 
 export function activate(context: vscode.ExtensionContext): void {
-  const disposable = vscode.commands.registerCommand(
-    "taskModelAdvisor.recommend",
-    async () => {
-      vscode.window.showInformationMessage(
-        "Task Model Advisor: wiring incomplete — implement recommend command."
-      );
-    }
-  );
+  const disposable = vscode.commands.registerCommand("taskModelAdvisor.recommend", async () => {
+    vscode.window.showInformationMessage(
+      "Task Model Advisor: wiring incomplete — implement recommend command."
+    );
+  });
   context.subscriptions.push(disposable);
 }
 
@@ -247,10 +246,12 @@ Expected: compile OK; vitest “No test files found” or 0 tests until Task 2 �
 ### Task 2: Domain types + config reader
 
 **Files:**
+
 - Create: `src/types.ts`, `src/config.ts`
 - Test: `src/__tests__/config.test.ts` (pure defaults without vscode — export `resolveConfig(raw)`)
 
 **Interfaces:**
+
 - Produces:
   - `TaskProfileId = "spec" | "userStory" | "testScenario" | "pythonScript" | "other"`
   - `SessionModel { id: string; name: string; family?: string; vendor?: string }`
@@ -300,10 +301,12 @@ Implement types as listed in Interfaces. `resolveConfig` deep-merges known keys 
 ### Task 3: Task presets + Autre classifier
 
 **Files:**
+
 - Create: `src/task/presets.ts`, `src/task/classify-other.ts`
 - Test: `src/__tests__/classify-other.test.ts`
 
 **Interfaces:**
+
 - Consumes: `TaskProfileId`
 - Produces:
   - `TASK_PRESETS: Array<{ id: TaskProfileId; label: string }>` (Autre last)
@@ -333,9 +336,7 @@ describe("TASK_PRESETS", () => {
 
 describe("classifyOther", () => {
   it("maps python automation keywords to pythonScript", () => {
-    expect(classifyOther("écrire un script python pour scraper")).toBe(
-      "pythonScript"
-    );
+    expect(classifyOther("écrire un script python pour scraper")).toBe("pythonScript");
   });
   it("maps user story keywords", () => {
     expect(classifyOther("rédiger une user story Jira")).toBe("userStory");
@@ -384,10 +385,12 @@ Tune so overlapping cases pick first matching rule order (python before generic 
 ### Task 4: Normalize + model matcher
 
 **Files:**
+
 - Create: `src/matching/normalize.ts`, `src/matching/model-matcher.ts`
 - Test: `src/__tests__/normalize.test.ts`, `src/__tests__/model-matcher.test.ts`
 
 **Interfaces:**
+
 - Consumes: `SessionModel`, `BenchmarkModel`, `AdvisorConfig.modelAliases`, `fuzzyThreshold`
 - Produces:
   - `normalizeModelKey(s: string): string`
@@ -404,18 +407,14 @@ import { normalizeModelKey, similarity } from "../matching/normalize";
 describe("normalizeModelKey", () => {
   it("lowercases and strips enterprise/date noise", () => {
     expect(normalizeModelKey("GPT-4o (Entreprise)")).toContain("gpt");
-    expect(normalizeModelKey("gpt-4o-2024-08-06")).toBe(
-      normalizeModelKey("gpt-4o")
-    );
+    expect(normalizeModelKey("gpt-4o-2024-08-06")).toBe(normalizeModelKey("gpt-4o"));
   });
 });
 
 describe("similarity", () => {
   it("is high for near-identical strings", () => {
     expect(similarity("gpt-4o", "gpt-4o")).toBe(1);
-    expect(similarity("claude-3-5-sonnet", "claude-3.5-sonnet")).toBeGreaterThan(
-      0.7
-    );
+    expect(similarity("claude-3-5-sonnet", "claude-3.5-sonnet")).toBeGreaterThan(0.7);
   });
 });
 ```
@@ -440,9 +439,7 @@ const benches = [
 
 describe("matchModels", () => {
   it("matches via alias", () => {
-    const session = [
-      { id: "copilot-gpt-4o-mini-enterprise", name: "GPT-4o mini entreprise" },
-    ];
+    const session = [{ id: "copilot-gpt-4o-mini-enterprise", name: "GPT-4o mini entreprise" }];
     const out = matchModels(
       session,
       benches,
@@ -455,12 +452,7 @@ describe("matchModels", () => {
   });
 
   it("fuzzy-matches display name", () => {
-    const out = matchModels(
-      [{ id: "x", name: "Claude 3.5 Sonnet" }],
-      benches,
-      {},
-      0.72
-    );
+    const out = matchModels([{ id: "x", name: "Claude 3.5 Sonnet" }], benches, {}, 0.72);
     expect(out[0].benchmark?.slug).toBe("claude-3-5-sonnet");
     expect(out[0].badges).toEqual(["matched"]);
   });
@@ -481,6 +473,7 @@ describe("matchModels", () => {
 - [ ] **Step 4: Implement `model-matcher.ts`**
 
 Algorithm per session model:
+
 1. If `aliases[id]` or `aliases[name]` → exact slug match → badges `matched` + `enterprise` if name/id matches `/enterprise|entreprise/i`.
 2. Else compute max similarity vs each benchmark `slug` and `normalize(name)`; if ≥ threshold → matched.
 3. Else benchmark null, badge `weak`.
@@ -492,15 +485,18 @@ Algorithm per session model:
 ### Task 5: Task ranker (top 3)
 
 **Files:**
+
 - Create: `src/ranking/task-ranker.ts`
 - Test: `src/__tests__/task-ranker.test.ts`
 - Fixtures: expand inline data to reach ≥20 ranking/matching cases across Tasks 4–5
 
 **Interfaces:**
+
 - Consumes: `MatchedModel[]`, `ArenaEntry[]`, `TaskProfileId`, weights, `reasoningModelPatterns`
 - Produces: `rankRecommendations(...): Recommendation[]` length ≤ 3
 
 Profile signal keys:
+
 - `spec`: prefer `intelligence` (+ `gdpval` / writing keys if present in `evaluations`)
 - `userStory`: `intelligence` (0.8×)
 - `testScenario`: `intelligence`
@@ -638,11 +634,13 @@ Normalize each component 0..1 across the **matched-with-benchmark** subset; weak
 ### Task 6: Artificial Analysis provider
 
 **Files:**
+
 - Create: `src/providers/artificial-analysis.ts`
 - Test: `src/__tests__/artificial-analysis.test.ts`
 - Fixture: `src/__tests__/fixtures/aa-models.json` (minimal 3–5 models shaped like API)
 
 **Interfaces:**
+
 - Produces: `fetchArtificialAnalysisModels(opts: { apiKey: string; timeoutMs: number; fetchImpl?: typeof fetch }): Promise<BenchmarkModel[]>`
 - Throws typed errors: `missing_api_key`, `http_error`, `timeout`, `parse_error`
 
@@ -705,11 +703,13 @@ Use URL from Artificial Analysis docs current free/list endpoint (verify at impl
 ### Task 7: Arena provider
 
 **Files:**
+
 - Create: `src/providers/arena.ts`
 - Test: `src/__tests__/arena.test.ts`
 - Fixture: `src/__tests__/fixtures/arena-coding.json`
 
 **Interfaces:**
+
 - Produces: `fetchArenaLeaderboard(opts: { category: string; source: string; timeoutMs: number; fetchImpl?: typeof fetch }): Promise<ArenaEntry[]>`
 - On failure: throw; orchestrator catches and continues with `[]` + warning (Task 10).
 
@@ -722,9 +722,11 @@ Default `wulong-mirror` base URL (document exact URL in code, e.g. community JSO
 ### Task 8: Host model discovery
 
 **Files:**
+
 - Create: `src/host/model-discovery.ts`
 
 **Interfaces:**
+
 - Produces: `discoverSessionModels(): Promise<SessionModel[]>` wrapping `vscode.lm.selectChatModels()`
 - Map `LanguageModelChat` → `{ id, name, family, vendor }`
 
@@ -752,9 +754,11 @@ export async function discoverSessionModels(): Promise<SessionModel[]> {
 ### Task 9: Task picker + recommendation UI
 
 **Files:**
+
 - Create: `src/ui/task-picker.ts`, `src/ui/recommendation-ui.ts`
 
 **Interfaces:**
+
 - `pickTask(): Promise<{ profileId: TaskProfileId; customText?: string } | undefined>`
 - `showRecommendations(recs: Recommendation[], warnings: string[]): Promise<"validate" | "copy" | "refresh" | undefined>` and selected recommendation index via QuickPick `buttons` or two-step: first pick recommendation, then pick action.
 
@@ -774,15 +778,18 @@ UX (v1 QuickPick, no Webview):
 ### Task 10: Apply adapter + orchestrator command
 
 **Files:**
+
 - Create: `src/apply/apply-adapter.ts`, `src/commands/recommend.ts`
 - Modify: `src/extension.ts` to call `runRecommendCommand`
 
 **Interfaces:**
+
 - `toClipboardPayload(rec: Recommendation, profileId: TaskProfileId): object` (shape from spec §8.1)
 - `applyRecommendation(rec: Recommendation, strategy: AdvisorConfig["applyStrategy"]): Promise<{ applied: boolean; detail: string }>`
 - `runRecommendCommand(): Promise<void>`
 
 Apply order:
+
 1. If `clipboard-only` → write clipboard + info message; return.
 2. Try `vscode.commands.executeCommand` candidates (probe list in code comments; empty success OK): e.g. known Copilot model picker commands if discovered during manual test — wrap each try/catch.
 3. Always write clipboard JSON.
@@ -819,6 +826,7 @@ import { runRecommendCommand } from "./commands/recommend";
 ### Task 11: README + manual acceptance checklist
 
 **Files:**
+
 - Modify: `README.md`
 
 - [ ] **Step 1: Document**
@@ -834,29 +842,29 @@ import { runRecommendCommand } from "./commands/recommend";
 Run: `npm test`  
 Expected: all green; ≥20 cases across matcher/ranker/classifier.
 
-- [ ] **Step 3: Manual matrix (owner)**  
-  - macOS Cursor: recommend → top 3 from session models  
-  - Windows VS Code + Copilot: same  
-  - Disconnect network / bad AA key → clear error  
+- [ ] **Step 3: Manual matrix (owner)**
+  - macOS Cursor: recommend → top 3 from session models
+  - Windows VS Code + Copilot: same
+  - Disconnect network / bad AA key → clear error
   - Arena down (mock later) → warning + still ranks
 
 ---
 
 ## Spec coverage self-check
 
-| Spec section | Task(s) |
-|--------------|---------|
-| §3 UX presets + Autre + top 3 + badges + Validate/Copy/Refresh | 3, 4, 5, 9, 10 |
-| §4 modules | file structure + 3–10 |
-| §5 AA + Arena fetch B, Arena soft-fail | 6, 7, 10 |
-| §6 discovery + aliases + fuzzy + weak fill | 4, 8, 5 |
-| §7 profiles + formula + reasoning bump | 3, 5 |
-| §8 apply + clipboard JSON | 10 |
-| §9 settings schema | 1, 2 |
-| §10 stack | 1 |
-| §11 timeout / no silent cache | 6, 7, 10 |
-| §12 acceptance | 11 + tests Tasks 3–5 |
-| §14 v2 | intentionally omitted |
+| Spec section                                                   | Task(s)               |
+| -------------------------------------------------------------- | --------------------- |
+| §3 UX presets + Autre + top 3 + badges + Validate/Copy/Refresh | 3, 4, 5, 9, 10        |
+| §4 modules                                                     | file structure + 3–10 |
+| §5 AA + Arena fetch B, Arena soft-fail                         | 6, 7, 10              |
+| §6 discovery + aliases + fuzzy + weak fill                     | 4, 8, 5               |
+| §7 profiles + formula + reasoning bump                         | 3, 5                  |
+| §8 apply + clipboard JSON                                      | 10                    |
+| §9 settings schema                                             | 1, 2                  |
+| §10 stack                                                      | 1                     |
+| §11 timeout / no silent cache                                  | 6, 7, 10              |
+| §12 acceptance                                                 | 11 + tests Tasks 3–5  |
+| §14 v2                                                         | intentionally omitted |
 
 ## Placeholder / consistency notes
 
@@ -872,7 +880,7 @@ Plan complete and saved to `docs/superpowers/plans/2026-10-05-task-model-advisor
 
 **Two execution options:**
 
-1. **Subagent-Driven (recommended)** — fresh subagent per task, review between tasks  
-2. **Inline Execution** — execute tasks in this session with checkpoints  
+1. **Subagent-Driven (recommended)** — fresh subagent per task, review between tasks
+2. **Inline Execution** — execute tasks in this session with checkpoints
 
 Which approach?

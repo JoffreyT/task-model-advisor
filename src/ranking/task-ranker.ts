@@ -38,10 +38,7 @@ function isWeakMatch(m: MatchedModel): boolean {
   return m.benchmark === null || m.badges.includes("weak");
 }
 
-function evalValue(
-  benchmark: BenchmarkModel,
-  keys: string[]
-): number | null {
+function evalValue(benchmark: BenchmarkModel, keys: string[]): number | null {
   for (const key of keys) {
     const direct = benchmark.evaluations[key];
     if (direct != null) return direct;
@@ -160,19 +157,13 @@ function resolveContextWindow(
   if (benchmark?.contextWindowTokens != null) {
     ctx = lowerContextTier(ctx, tokensToContextTier(benchmark.contextWindowTokens));
   }
-  if (
-    customText &&
-    /codebase|repo|monorepo|multi-?fichier|large|gros/i.test(customText)
-  ) {
+  if (customText && /codebase|repo|monorepo|multi-?fichier|large|gros/i.test(customText)) {
     ctx = bumpContextTier(ctx);
   }
   return ctx;
 }
 
-function normalizeArenaScores(
-  rawArena: Array<number | null>,
-  useElo: boolean
-): number[] {
+function normalizeArenaScores(rawArena: Array<number | null>, useElo: boolean): number[] {
   if (useElo) {
     const eloValues = rawArena.filter((v): v is number => v != null);
     const normPool = minMax(eloValues);
@@ -205,13 +196,8 @@ function profileDefaults(profileId: TaskProfileId): {
   }
 }
 
-function matchesReasoningPattern(
-  session: SessionModel,
-  patterns: string[]
-): boolean {
-  const haystack = [session.id, session.name, session.family ?? ""]
-    .join(" ")
-    .toLowerCase();
+function matchesReasoningPattern(session: SessionModel, patterns: string[]): boolean {
+  const haystack = [session.id, session.name, session.family ?? ""].join(" ").toLowerCase();
   return patterns.some((p) => p.length > 0 && haystack.includes(p.toLowerCase()));
 }
 
@@ -241,18 +227,14 @@ function buildRationale(
   return base;
 }
 
-function costTierFromPrice(
-  price: number | null,
-  prices: number[]
-): Recommendation["costTier"] {
+function costTierFromPrice(price: number | null, prices: number[]): Recommendation["costTier"] {
   if (price == null || !Number.isFinite(price) || prices.length === 0) {
     return "unknown";
   }
   if (prices.length === 1) return "medium";
   const sorted = [...prices].sort((a, b) => a - b);
   const lowCut = sorted[Math.floor((sorted.length - 1) / 3)] ?? sorted[0];
-  const highCut =
-    sorted[Math.ceil(((sorted.length - 1) * 2) / 3)] ?? sorted[sorted.length - 1];
+  const highCut = sorted[Math.ceil(((sorted.length - 1) * 2) / 3)] ?? sorted[sorted.length - 1];
   if (price <= lowCut) return "low";
   if (price >= highCut) return "high";
   return "medium";
@@ -307,24 +289,26 @@ export function resolveProfileWeights(
 }
 
 export function rankRecommendations(input: RankRecommendationsInput): Recommendation[] {
-  const { matched, arena, profileId, weights: baseWeights, reasoningModelPatterns, customText } =
-    input;
+  const {
+    matched,
+    arena,
+    profileId,
+    weights: baseWeights,
+    reasoningModelPatterns,
+    customText,
+  } = input;
   const weights = resolveProfileWeights(profileId, baseWeights);
   const arenaByKey = buildArenaLookup(arena);
   const useElo = arena.some((e) => e.score != null);
 
   const withBenchmark = matched.filter((m) => !isWeakMatch(m) && m.benchmark);
-  const rawTaskFits = withBenchmark.map((m) =>
-    rawTaskFit(m.benchmark!, profileId)
-  );
+  const rawTaskFits = withBenchmark.map((m) => rawTaskFit(m.benchmark!, profileId));
   const normTaskFits = minMax(rawTaskFits);
 
   const arenaEligible = withBenchmark.map((m) =>
     findArenaEntry(m.session, m.benchmark, arenaByKey)
   );
-  const rawArena = withBenchmark.map((_, i) =>
-    rawArenaScore(arenaEligible[i], arena, useElo)
-  );
+  const rawArena = withBenchmark.map((_, i) => rawArenaScore(arenaEligible[i], arena, useElo));
   const normArena = normalizeArenaScores(rawArena, useElo);
 
   const pricesAmongMatched = withBenchmark
@@ -336,19 +320,13 @@ export function rankRecommendations(input: RankRecommendationsInput): Recommenda
     const arenaNorm = Number.isFinite(normArena[i]) ? (normArena[i] ?? 0) : 0;
     const price = m.benchmark!.blendedPricePer1M;
     const cost =
-      price != null && price > 0 && Number.isFinite(price)
-        ? absoluteCostScore(price)
-        : 0.5;
+      price != null && price > 0 && Number.isFinite(price) ? absoluteCostScore(price) : 0.5;
     const blendedPricePer1M =
-      m.benchmark!.blendedPricePer1M != null &&
-      Number.isFinite(m.benchmark!.blendedPricePer1M)
+      m.benchmark!.blendedPricePer1M != null && Number.isFinite(m.benchmark!.blendedPricePer1M)
         ? m.benchmark!.blendedPricePer1M
         : null;
     const breakdown = { taskFit, arena: arenaNorm, cost };
-    const score =
-      weights.taskFit * taskFit +
-      weights.arena * arenaNorm +
-      weights.cost * cost;
+    const score = weights.taskFit * taskFit + weights.arena * arenaNorm + weights.cost * cost;
     const defaults = profileDefaults(profileId);
     let thinkingEffort = defaults.thinkingEffort;
     if (matchesReasoningPattern(m.session, reasoningModelPatterns)) {
@@ -386,10 +364,7 @@ export function rankRecommendations(input: RankRecommendationsInput): Recommenda
       thinkingEffort = bumpThinking(thinkingEffort);
     }
     const breakdown = { taskFit: 0, arena: 0, cost: 0 };
-    const score =
-      scoredMatched.length > 0
-        ? worstMatchedScore - WEAK_SCORE_OFFSET - i * 1e-6
-        : 0;
+    const score = scoredMatched.length > 0 ? worstMatchedScore - WEAK_SCORE_OFFSET - i * 1e-6 : 0;
     return {
       sessionModel: m.session,
       score,
@@ -406,9 +381,7 @@ export function rankRecommendations(input: RankRecommendationsInput): Recommenda
     };
   });
 
-  const ranked = [...scoredMatched]
-    .sort((a, b) => b.score - a.score)
-    .concat(scoredWeak);
+  const ranked = [...scoredMatched].sort((a, b) => b.score - a.score).concat(scoredWeak);
 
   return diversifyTop3(ranked).slice(0, 3);
 }

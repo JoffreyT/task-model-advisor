@@ -29,9 +29,7 @@ describe("matchModels", () => {
   });
 
   it("matches via alias", () => {
-    const session = [
-      { id: "copilot-gpt-4o-mini-enterprise", name: "GPT-4o mini entreprise" },
-    ];
+    const session = [{ id: "copilot-gpt-4o-mini-enterprise", name: "GPT-4o mini entreprise" }];
     const out = matchModels(
       session,
       benches,
@@ -44,12 +42,7 @@ describe("matchModels", () => {
   });
 
   it("fuzzy-matches display name", () => {
-    const out = matchModels(
-      [{ id: "x", name: "Claude 3.5 Sonnet" }],
-      benches,
-      {},
-      0.72
-    );
+    const out = matchModels([{ id: "x", name: "Claude 3.5 Sonnet" }], benches, {}, 0.72);
     expect(out[0].benchmark?.slug).toBe("claude-3-5-sonnet");
     expect(out[0].badges).toEqual(["matched"]);
   });
@@ -77,47 +70,27 @@ describe("matchModels", () => {
   });
 
   it("fuzzy-matches session id to benchmark slug", () => {
-    const out = matchModels(
-      [{ id: "gpt_4o_mini", name: "something else" }],
-      benches,
-      {},
-      0.72
-    );
+    const out = matchModels([{ id: "gpt_4o_mini", name: "something else" }], benches, {}, 0.72);
     expect(out[0].benchmark?.slug).toBe("gpt-4o-mini");
     expect(out[0].badges).toContain("matched");
   });
 
   it("adds enterprise badge on fuzzy match when id contains enterprise", () => {
-    const out = matchModels(
-      [{ id: "gpt-4o-enterprise", name: "GPT-4o" }],
-      benches,
-      {},
-      0.72
-    );
+    const out = matchModels([{ id: "gpt-4o-enterprise", name: "GPT-4o" }], benches, {}, 0.72);
     expect(out[0].benchmark?.slug).toBe("gpt-4o");
     expect(out[0].badges).toContain("matched");
     expect(out[0].badges).toContain("enterprise");
   });
 
   it("fuzzy-matches spaced Claude Sonnet 4 display name", () => {
-    const out = matchModels(
-      [{ id: "x", name: "Claude Sonnet 4" }],
-      benches,
-      {},
-      0.72
-    );
+    const out = matchModels([{ id: "x", name: "Claude Sonnet 4" }], benches, {}, 0.72);
     expect(out[0].benchmark?.slug).toBe("claude-sonnet-4");
     expect(out[0].score).toBeGreaterThan(0.72);
     expect(out[0].badges).toContain("matched");
   });
 
   it("does not match GPT-4o mini to gpt-4o slug above threshold", () => {
-    const out = matchModels(
-      [{ id: "y", name: "GPT-4o mini" }],
-      benches,
-      {},
-      0.72
-    );
+    const out = matchModels([{ id: "y", name: "GPT-4o mini" }], benches, {}, 0.72);
     expect(out[0].benchmark?.slug).toBe("gpt-4o-mini");
     const wrong = matchModels(
       [{ id: "y", name: "GPT-4o mini" }],

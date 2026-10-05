@@ -66,10 +66,7 @@ interface ApplyProbe {
   kind: "switch" | "new-agent" | "max-mode";
 }
 
-function buildCursorModelProbes(
-  modelIds: string[],
-  rec: Recommendation
-): ApplyProbe[] {
+function buildCursorModelProbes(modelIds: string[], rec: Recommendation): ApplyProbe[] {
   const params = buildSwitchParams(rec);
   const probes: ApplyProbe[] = [];
   for (const modelId of modelIds) {
@@ -88,10 +85,7 @@ function buildCursorModelProbes(
   return probes;
 }
 
-function buildCursorMaxModeProbes(
-  modelIds: string[],
-  rec: Recommendation
-): ApplyProbe[] {
+function buildCursorMaxModeProbes(modelIds: string[], rec: Recommendation): ApplyProbe[] {
   const probes: ApplyProbe[] = [];
   for (const modelId of modelIds) {
     const config = composerModelConfigArgs(modelId, rec);
@@ -117,12 +111,7 @@ async function runFirstProbe(
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       errors.push(`${probe.commandId}: ${message}`);
-      console.warn(
-        "[Task Model Advisor] apply probe failed",
-        probe.commandId,
-        probe.arg,
-        err
-      );
+      console.warn("[Task Model Advisor] apply probe failed", probe.commandId, probe.arg, err);
     }
   }
   return { ok: false, errors };
@@ -147,9 +136,7 @@ async function tryApplyCursorModel(rec: Recommendation): Promise<{
   const maxModeTarget = contextToMaxMode(rec.contextWindow);
   const thinkingApplied = rec.thinkingEffort !== "off";
 
-  const modelResult = await runFirstProbe(
-    buildCursorModelProbes(modelIds, rec)
-  );
+  const modelResult = await runFirstProbe(buildCursorModelProbes(modelIds, rec));
   if (!modelResult.ok || !modelResult.probe) {
     return {
       ok: false,
@@ -165,9 +152,7 @@ async function tryApplyCursorModel(rec: Recommendation): Promise<{
 
   let maxModeApplied = false;
   if (modelResult.probe.kind === "switch") {
-    const maxResult = await runFirstProbe(
-      buildCursorMaxModeProbes(modelIds, rec)
-    );
+    const maxResult = await runFirstProbe(buildCursorMaxModeProbes(modelIds, rec));
     maxModeApplied = maxResult.ok;
   }
 
@@ -186,26 +171,17 @@ function successMessage(
   rec: Recommendation,
   result: Awaited<ReturnType<typeof tryApplyCursorModel>>
 ): string {
-  const via =
-    result.kind === "new-agent"
-      ? "nouvel Agent"
-      : "modèle du composer courant";
-  const parts = [
-    `modèle "${rec.sessionModel.name}" (${formatPrice(rec)})`,
-  ];
+  const via = result.kind === "new-agent" ? "nouvel Agent" : "modèle du composer courant";
+  const parts = [`modèle "${rec.sessionModel.name}" (${formatPrice(rec)})`];
   if (result.thinkingApplied) {
     parts.push(`thinking "${rec.thinkingEffort}" (effort)`);
   } else {
     parts.push(`thinking "${rec.thinkingEffort}"`);
   }
   if (result.maxModeApplied) {
-    parts.push(
-      `Max Mode ${result.maxModeTarget ? "ON" : "OFF"} (contexte ${rec.contextWindow})`
-    );
+    parts.push(`Max Mode ${result.maxModeTarget ? "ON" : "OFF"} (contexte ${rec.contextWindow})`);
   } else {
-    parts.push(
-      `contexte "${rec.contextWindow}" à régler manuellement (Max Mode)`
-    );
+    parts.push(`contexte "${rec.contextWindow}" à régler manuellement (Max Mode)`);
   }
   return `Task Model Advisor: ${via} → ${parts.join(" · ")} via ${result.commandId}. Config aussi copiée.`;
 }
@@ -267,8 +243,6 @@ export async function copyRecommendationToClipboard(
     );
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
-    await vscode.window.showErrorMessage(
-      `Task Model Advisor: impossible de copier (${message}).`
-    );
+    await vscode.window.showErrorMessage(`Task Model Advisor: impossible de copier (${message}).`);
   }
 }

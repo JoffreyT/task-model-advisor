@@ -15,8 +15,6 @@ describe("formatScoreBreakdown", () => {
       blendedPricePer1M: 1,
       costTier: "medium",
     };
-    expect(formatScoreBreakdown(rec)).toBe(
-      "score 0.72 · fit 0.81 · arena 0.90 · cost 0.55"
-    );
+    expect(formatScoreBreakdown(rec)).toBe("score 0.72 · fit 0.81 · arena 0.90 · cost 0.55");
   });
 });

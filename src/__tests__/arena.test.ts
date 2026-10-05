@@ -2,8 +2,7 @@ import { describe, it, expect, vi } from "vitest";
 import { fetchArenaLeaderboard } from "../providers/arena";
 import codingFixture from "./fixtures/arena-coding.json";
 
-const WULONG_CODING_URL =
-  "https://api.wulong.dev/arena-ai-leaderboards/v1/leaderboard?name=coding";
+const WULONG_CODING_URL = "https://api.wulong.dev/arena-ai-leaderboards/v1/leaderboard?name=coding";
 
 describe("fetchArenaLeaderboard", () => {
   it("maps models[] to ArenaEntry[]", async () => {
@@ -61,9 +60,7 @@ describe("fetchArenaLeaderboard", () => {
   });
 
   it("throws on timeout", async () => {
-    const fetchImpl = vi.fn().mockRejectedValue(
-      new DOMException("Timed out", "TimeoutError")
-    );
+    const fetchImpl = vi.fn().mockRejectedValue(new DOMException("Timed out", "TimeoutError"));
     await expect(
       fetchArenaLeaderboard({
         category: "text",

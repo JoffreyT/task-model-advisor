@@ -18,8 +18,10 @@ export function parseAgentModelsOutput(stdout: string): SessionModel[] {
   const models: SessionModel[] = [];
   const seen = new Set<string>();
 
+  // Strip ANSI CSI sequences from CLI output (ESC = \u001b).
+  const ansiCsi = new RegExp(`${String.fromCharCode(0x1b)}\\[[0-9;]*[a-zA-Z]`, "g");
   for (const rawLine of stdout.split(/\r?\n/)) {
-    const line = rawLine.replace(/\x1b\[[0-9;]*[a-zA-Z]/g, "").trim();
+    const line = rawLine.replace(ansiCsi, "").trim();
     if (!line) continue;
     const lower = line.toLowerCase();
     if (
@@ -117,17 +119,9 @@ export async function fetchCursorModelsViaAgentCli(opts: {
   let lastDetail = "agent CLI unavailable";
 
   for (const attempt of attempts) {
-    const result = await runCommand(
-      attempt.cmd,
-      attempt.args,
-      env,
-      opts.timeoutMs
-    );
+    const result = await runCommand(attempt.cmd, attempt.args, env, opts.timeoutMs);
     const combined = `${result.stdout}\n${result.stderr}`;
-    if (
-      /authentication required|not logged in/i.test(combined) &&
-      !opts.apiKey?.trim()
-    ) {
+    if (/authentication required|not logged in/i.test(combined) && !opts.apiKey?.trim()) {
       lastDetail =
         "Cursor CLI not logged in. Run `agent login` or set taskModelAdvisor.cursor.apiKey.";
       continue;
@@ -204,11 +198,7 @@ export async function fetchCursorModelsViaApi(opts: {
       const id = typeof item.id === "string" ? item.id.trim() : "";
       if (!id || seen.has(id.toLowerCase())) continue;
       seen.add(id.toLowerCase());
-      const name =
-        item.displayName?.trim() ||
-        item.display_name?.trim() ||
-        item.name?.trim() ||
-        id;
+      const name = item.displayName?.trim() || item.display_name?.trim() || item.name?.trim() || id;
       models.push({ id, name, vendor: "cursor" });
     }
 

@@ -1,8 +1,5 @@
 import * as vscode from "vscode";
-import {
-  applyRecommendation,
-  copyRecommendationToClipboard,
-} from "../apply/apply-adapter";
+import { applyRecommendation, copyRecommendationToClipboard } from "../apply/apply-adapter";
 import { resolveConfig } from "../config";
 import { discoverSessionModels } from "../host/model-discovery";
 import { matchModels } from "../matching/model-matcher";
@@ -35,9 +32,7 @@ function loadAdvisorConfig(): AdvisorConfig {
       categories: section.get<Record<string, string>>("arena.categories"),
     },
     ranking: {
-      weights: section.get<AdvisorConfig["ranking"]["weights"]>(
-        "ranking.weights"
-      ),
+      weights: section.get<AdvisorConfig["ranking"]["weights"]>("ranking.weights"),
     },
     modelAliases: section.get<Record<string, string>>("modelAliases"),
     matching: {
@@ -97,9 +92,7 @@ async function fetchBenchmarksAndSession(
           `Arena leaderboard unavailable: ${err.message}. Rankings use Artificial Analysis only.`
         );
       } else {
-        warnings.push(
-          "Arena leaderboard unavailable. Rankings use Artificial Analysis only."
-        );
+        warnings.push("Arena leaderboard unavailable. Rankings use Artificial Analysis only.");
       }
       return [] as ArenaEntry[];
     });
@@ -155,11 +148,8 @@ export async function runRecommendCommand(): Promise<void> {
         );
         return;
       }
-      const message =
-        err instanceof Error ? err.message : "Unknown fetch error";
-      void vscode.window.showErrorMessage(
-        `Task Model Advisor fetch failed: ${message}`
-      );
+      const message = err instanceof Error ? err.message : "Unknown fetch error";
+      void vscode.window.showErrorMessage(`Task Model Advisor fetch failed: ${message}`);
       return;
     }
 
@@ -172,15 +162,11 @@ export async function runRecommendCommand(): Promise<void> {
       );
       const picked = await pickFallbackSessionModels(config.fallbackModels);
       if (!picked || picked.length === 0) {
-        void vscode.window.showErrorMessage(
-          "No session models selected. Cancelled."
-        );
+        void vscode.window.showErrorMessage("No session models selected. Cancelled.");
         return;
       }
       sessionModels = picked;
-      warnings.push(
-        "Session models were selected manually (auto-discovery failed)."
-      );
+      warnings.push("Session models were selected manually (auto-discovery failed).");
     }
 
     const matched = matchModels(
@@ -220,9 +206,7 @@ export async function runRecommendCommand(): Promise<void> {
       await applyRecommendation(rec, config.applyStrategy, profileId, rank);
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
-      void vscode.window.showErrorMessage(
-        `Task Model Advisor: validation a échoué (${message}).`
-      );
+      void vscode.window.showErrorMessage(`Task Model Advisor: validation a échoué (${message}).`);
     }
     return;
   }

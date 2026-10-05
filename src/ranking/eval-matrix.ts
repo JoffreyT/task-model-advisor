@@ -1,16 +1,7 @@
 import { matchModels } from "../matching/model-matcher";
-import type {
-  AdvisorConfig,
-  Recommendation,
-  TaskProfileId,
-} from "../types";
+import type { AdvisorConfig, Recommendation, TaskProfileId } from "../types";
 import { formatScoreBreakdown } from "../ui/format-recommendation";
-import {
-  EVAL_ALIASES,
-  EVAL_ARENA,
-  EVAL_BENCHMARKS,
-  EVAL_SESSION_MODELS,
-} from "./eval-fixtures";
+import { EVAL_ALIASES, EVAL_ARENA, EVAL_BENCHMARKS, EVAL_SESSION_MODELS } from "./eval-fixtures";
 import { rankRecommendations } from "./task-ranker";
 
 export const EVAL_TASK_PROFILES: TaskProfileId[] = [
@@ -40,25 +31,13 @@ export interface EvalMatrixOptions {
 
 const DEFAULT_WEIGHTS = { taskFit: 0.45, arena: 0.25, cost: 0.3 };
 
-export function runEvalMatrix(
-  options: EvalMatrixOptions = {}
-): EvalProfileResult[] {
+export function runEvalMatrix(options: EvalMatrixOptions = {}): EvalProfileResult[] {
   const weights = options.weights ?? DEFAULT_WEIGHTS;
   const threshold = options.fuzzyThreshold ?? 0.72;
   const aliases = options.aliases ?? EVAL_ALIASES;
-  const patterns = options.reasoningModelPatterns ?? [
-    "o1",
-    "o3",
-    "deepseek-r1",
-    "extended",
-  ];
+  const patterns = options.reasoningModelPatterns ?? ["o1", "o3", "deepseek-r1", "extended"];
 
-  const matched = matchModels(
-    EVAL_SESSION_MODELS,
-    EVAL_BENCHMARKS,
-    aliases,
-    threshold
-  );
+  const matched = matchModels(EVAL_SESSION_MODELS, EVAL_BENCHMARKS, aliases, threshold);
   const matchedCount = matched.filter((m) => m.badges.includes("matched")).length;
   const weakCount = matched.filter((m) => m.badges.includes("weak")).length;
 
@@ -131,12 +110,8 @@ export function formatEvalReport(results: EvalProfileResult[]): string {
     }
     row.recommendations.forEach((rec, i) => {
       const price =
-        rec.blendedPricePer1M != null
-          ? `$${rec.blendedPricePer1M.toFixed(2)}/1M`
-          : "prix ?";
-      lines.push(
-        `  ${i + 1}. ${rec.sessionModel.name}  [${rec.badges.join(",")}]  ${price}`
-      );
+        rec.blendedPricePer1M != null ? `$${rec.blendedPricePer1M.toFixed(2)}/1M` : "prix ?";
+      lines.push(`  ${i + 1}. ${rec.sessionModel.name}  [${rec.badges.join(",")}]  ${price}`);
       lines.push(
         `     ${formatScoreBreakdown(rec)} · ctx:${rec.contextWindow} · think:${rec.thinkingEffort}`
       );

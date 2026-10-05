@@ -22,9 +22,7 @@ function toSessionModel(label: string): SessionModel {
 export async function pickFallbackSessionModels(
   candidates: string[]
 ): Promise<SessionModel[] | undefined> {
-  const unique = [
-    ...new Set(candidates.map((c) => c.trim()).filter(Boolean)),
-  ];
+  const unique = [...new Set(candidates.map((c) => c.trim()).filter(Boolean))];
 
   const items: FallbackItem[] = [
     ...unique.map((name) => ({

@@ -1,8 +1,5 @@
 import { describe, expect, it } from "vitest";
-import {
-  formatEvalReport,
-  runEvalMatrix,
-} from "../ranking/eval-matrix";
+import { formatEvalReport, runEvalMatrix } from "../ranking/eval-matrix";
 
 describe("ranking eval matrix (all task profiles)", () => {
   const results = runEvalMatrix();
@@ -56,13 +53,9 @@ describe("ranking eval matrix (all task profiles)", () => {
   });
 
   it("bumps context for other + large-codebase custom text vs plain other", () => {
-    const plain = results.find(
-      (r) => r.profileId === "other" && r.customText === undefined
-    );
+    const plain = results.find((r) => r.profileId === "other" && r.customText === undefined);
     const large = results.find(
-      (r) =>
-        r.profileId === "other" &&
-        r.customText?.includes("monorepo") === true
+      (r) => r.profileId === "other" && r.customText?.includes("monorepo") === true
     );
     expect(plain).toBeDefined();
     expect(large).toBeDefined();
@@ -76,9 +69,7 @@ describe("ranking eval matrix (all task profiles)", () => {
     const us = results.find((r) => r.profileId === "userStory");
     expect(us).toBeDefined();
     const names = us!.recommendations.map((r) => r.sessionModel.name);
-    const hasMidTier = names.some((n) =>
-      /Grok|Composer|Gemini|GLM|GPT-5\.6/i.test(n)
-    );
+    const hasMidTier = names.some((n) => /Grok|Composer|Gemini|GLM|GPT-5\.6/i.test(n));
     expect(hasMidTier).toBe(true);
   });
 });
