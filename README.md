@@ -50,7 +50,7 @@ Other settings use sensible defaults (`taskModelAdvisor.enabled`, Arena categori
 
 ## Known limitations
 
-- **Validate on Cursor (experimental):** tries undocumented `cursorai.action.switchToModelSlug` (current composer) then `newAgentWithModel` / `glass.newAgentWithModel`. Payload uses `modelIdWithParams` JSON. Context / thinking stay manual. Clipboard JSON always as backup. Set `taskModelAdvisor.applyStrategy` to `clipboard-only` to skip.
+- **Validate on Cursor (experimental):** applies model via `cursorai.action.switchToModelSlug` with `modelIdWithParams` (includes `effort` for thinking, optional `context` hint). Then probes a full `modelConfig` (incl. `maxMode`) for high-context recs — Max Mode may only stick on some Cursor builds. Clipboard JSON always as backup. Set `taskModelAdvisor.applyStrategy` to `clipboard-only` to skip.
 - **Cursor models:** Cursor does **not** expose Agent models through `vscode.lm`. The extension tries, in order: `vscode.lm` → Cursor CLI (`agent --list-models`, with optional `taskModelAdvisor.cursor.apiKey`) → Cursor API `GET /v1/models` → manual multi-select from `taskModelAdvisor.fallbackModels`.
 - Create a Cursor API key at [cursor.com/dashboard](https://cursor.com/dashboard) → **API Keys**, then set `taskModelAdvisor.cursor.apiKey`. Alternatively run `agent login` in a terminal so the CLI can list models.
 - **Context window tiers** are heuristic (profile defaults, Artificial Analysis `contextWindowTokens` caps, and keyword bumps for large codebases). They approximate host UI labels (`standard` / `medium` / `high`) and may not match every editor build.

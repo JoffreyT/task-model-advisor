@@ -1,7 +1,10 @@
 import * as vscode from "vscode";
 import type { AdvisorConfig, Recommendation, TaskProfileId } from "../types";
 import {
+  buildSwitchParams,
   candidateModelIds,
+  composerModelConfigArgs,
+  contextToMaxMode,
   switchToModelSlugArgs,
 } from "./cursor-apply-ids";
 
@@ -60,13 +63,17 @@ function manualApplyMessage(rec: Recommendation): string {
 interface ApplyProbe {
   commandId: string;
   arg: unknown;
-  kind: "switch" | "new-agent";
+  kind: "switch" | "new-agent" | "max-mode";
 }
 
-function buildCursorApplyProbes(modelIds: string[]): ApplyProbe[] {
+function buildCursorModelProbes(
+  modelIds: string[],
+  rec: Recommendation
+): ApplyProbe[] {
+  const params = buildSwitchParams(rec);
   const probes: ApplyProbe[] = [];
   for (const modelId of modelIds) {
-    const slugArgs = switchToModelSlugArgs(modelId);
+    const slugArgs = switchToModelSlugArgs(modelId, params);
     for (const commandId of [
       "cursorai.action.switchToModelSlug",
       "cursorai.action.switchToModelSlugInGlass",
@@ -81,27 +88,32 @@ function buildCursorApplyProbes(modelIds: string[]): ApplyProbe[] {
   return probes;
 }
 
-/**
- * Best-effort Cursor apply via undocumented commands.
- * Prefer switchToModelSlug (current composer); fall back to newAgentWithModel (Glass).
- * Do NOT gate on getCommands() — many Cursor actions are registered but filtered from the list.
- */
-async function tryApplyCursorModel(
+function buildCursorMaxModeProbes(
+  modelIds: string[],
   rec: Recommendation
-): Promise<{ ok: boolean; commandId?: string; kind?: string; detail: string }> {
-  const modelIds = candidateModelIds(rec);
-  const probes = buildCursorApplyProbes(modelIds);
-  const errors: string[] = [];
+): ApplyProbe[] {
+  const probes: ApplyProbe[] = [];
+  for (const modelId of modelIds) {
+    const config = composerModelConfigArgs(modelId, rec);
+    // Glass helper accepts a full modelConfig (incl. maxMode). Desktop may no-op.
+    for (const commandId of [
+      "glass.cursorai.action.switchToModelSlugInGlass",
+      "cursorai.action.switchToModelSlugInGlass",
+    ]) {
+      probes.push({ commandId, arg: config, kind: "max-mode" });
+    }
+  }
+  return probes;
+}
 
+async function runFirstProbe(
+  probes: ApplyProbe[]
+): Promise<{ ok: boolean; probe?: ApplyProbe; errors: string[] }> {
+  const errors: string[] = [];
   for (const probe of probes) {
     try {
       await vscode.commands.executeCommand(probe.commandId, probe.arg);
-      return {
-        ok: true,
-        commandId: probe.commandId,
-        kind: probe.kind,
-        detail: `${probe.commandId} (${probe.kind})`,
-      };
+      return { ok: true, probe, errors };
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       errors.push(`${probe.commandId}: ${message}`);
@@ -113,31 +125,89 @@ async function tryApplyCursorModel(
       );
     }
   }
+  return { ok: false, errors };
+}
 
-  // Optional diagnostic: which related commands exist in this build?
-  try {
-    const available = await vscode.commands.getCommands(true);
-    const related = available
-      .filter((id) =>
-        /model|agent|composer\.|cursorai\.|glass\./i.test(id)
-      )
-      .sort()
-      .slice(0, 40);
-    console.info(
-      "[Task Model Advisor] related commands sample:",
-      related.join(", ")
+/**
+ * Best-effort Cursor apply via undocumented commands.
+ * 1) switchToModelSlug with effort(/context) params
+ * 2) secondary full modelConfig probe for maxMode
+ * Do NOT gate on getCommands() — many Cursor actions are filtered from the list.
+ */
+async function tryApplyCursorModel(rec: Recommendation): Promise<{
+  ok: boolean;
+  commandId?: string;
+  kind?: string;
+  thinkingApplied: boolean;
+  maxModeApplied: boolean;
+  maxModeTarget: boolean;
+  detail: string;
+}> {
+  const modelIds = candidateModelIds(rec);
+  const maxModeTarget = contextToMaxMode(rec.contextWindow);
+  const thinkingApplied = rec.thinkingEffort !== "off";
+
+  const modelResult = await runFirstProbe(
+    buildCursorModelProbes(modelIds, rec)
+  );
+  if (!modelResult.ok || !modelResult.probe) {
+    return {
+      ok: false,
+      thinkingApplied: false,
+      maxModeApplied: false,
+      maxModeTarget,
+      detail:
+        modelResult.errors.length > 0
+          ? `probes échouées (${modelResult.errors.slice(0, 3).join(" | ")}${modelResult.errors.length > 3 ? "…" : ""})`
+          : "aucune sonde exécutable",
+    };
+  }
+
+  let maxModeApplied = false;
+  if (modelResult.probe.kind === "switch") {
+    const maxResult = await runFirstProbe(
+      buildCursorMaxModeProbes(modelIds, rec)
     );
-  } catch {
-    // ignore
+    maxModeApplied = maxResult.ok;
   }
 
   return {
-    ok: false,
-    detail:
-      errors.length > 0
-        ? `probes échouées (${errors.slice(0, 3).join(" | ")}${errors.length > 3 ? "…" : ""})`
-        : "aucune sonde exécutable",
+    ok: true,
+    commandId: modelResult.probe.commandId,
+    kind: modelResult.probe.kind,
+    thinkingApplied,
+    maxModeApplied,
+    maxModeTarget,
+    detail: modelResult.probe.commandId,
   };
+}
+
+function successMessage(
+  rec: Recommendation,
+  result: Awaited<ReturnType<typeof tryApplyCursorModel>>
+): string {
+  const via =
+    result.kind === "new-agent"
+      ? "nouvel Agent"
+      : "modèle du composer courant";
+  const parts = [
+    `modèle "${rec.sessionModel.name}" (${formatPrice(rec)})`,
+  ];
+  if (result.thinkingApplied) {
+    parts.push(`thinking "${rec.thinkingEffort}" (effort)`);
+  } else {
+    parts.push(`thinking "${rec.thinkingEffort}"`);
+  }
+  if (result.maxModeApplied) {
+    parts.push(
+      `Max Mode ${result.maxModeTarget ? "ON" : "OFF"} (contexte ${rec.contextWindow})`
+    );
+  } else {
+    parts.push(
+      `contexte "${rec.contextWindow}" à régler manuellement (Max Mode)`
+    );
+  }
+  return `Task Model Advisor: ${via} → ${parts.join(" · ")} via ${result.commandId}. Config aussi copiée.`;
 }
 
 export async function applyRecommendation(
@@ -160,12 +230,12 @@ export async function applyRecommendation(
     if (isCursorHost()) {
       const result = await tryApplyCursorModel(rec);
       if (result.ok) {
-        const via =
-          result.kind === "new-agent"
-            ? "nouvel Agent"
-            : "modèle du composer courant";
-        const detail = `Task Model Advisor: ${via} → "${rec.sessionModel.name}" (${formatPrice(rec)}) via ${result.commandId}. Context/thinking manuels (${rec.contextWindow} / ${rec.thinkingEffort}). Config aussi copiée.`;
-        await vscode.window.showInformationMessage(detail);
+        const detail = successMessage(rec, result);
+        if (result.maxModeApplied) {
+          await vscode.window.showInformationMessage(detail);
+        } else {
+          await vscode.window.showWarningMessage(detail);
+        }
         return { applied: true, detail };
       }
 
