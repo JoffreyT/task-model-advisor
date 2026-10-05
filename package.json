@@ -48,7 +48,7 @@
         },
         "taskModelAdvisor.ranking.weights": {
           "type": "object",
-          "default": { "taskFit": 0.5, "arena": 0.3, "cost": 0.2 }
+          "default": { "taskFit": 0.45, "arena": 0.25, "cost": 0.3 }
         },
         "taskModelAdvisor.modelAliases": {
           "type": "object",
@@ -104,6 +104,7 @@
     "watch": "tsc -watch -p ./",
     "test": "vitest run",
     "test:watch": "vitest",
+    "eval:ranking": "vitest run ranking-eval --reporter=verbose",
     "package": "vsce package"
   },
   "devDependencies": {

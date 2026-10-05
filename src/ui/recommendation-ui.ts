@@ -1,5 +1,6 @@
 import * as vscode from "vscode";
 import type { Recommendation } from "../types";
+import { formatScoreBreakdown } from "./format-recommendation";
 
 export type RecommendationAction = "validate" | "copy" | "refresh";
 
@@ -7,6 +8,8 @@ export type RecommendationChoice = {
   action: RecommendationAction;
   index: number;
 };
+
+export { formatScoreBreakdown } from "./format-recommendation";
 
 type RecQuickPickItem = vscode.QuickPickItem & { index: number };
 
@@ -42,7 +45,7 @@ function formatRecommendationItem(rec: Recommendation, index: number): RecQuickP
   return {
     label: `$(sparkle) ${rec.sessionModel.name}`,
     description: `${formatCostLabel(rec)} · ${rec.contextWindow} · think:${rec.thinkingEffort}`,
-    detail: `${rec.rationale} [${badges}]`,
+    detail: `${formatScoreBreakdown(rec)} · ${rec.rationale} [${badges}]`,
     index,
   };
 }

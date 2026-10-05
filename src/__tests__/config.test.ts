@@ -5,7 +5,7 @@ describe("resolveConfig", () => {
   it("applies defaults when raw is empty", () => {
     const c = resolveConfig({});
     expect(c.enabled).toBe(true);
-    expect(c.ranking.weights).toEqual({ taskFit: 0.5, arena: 0.3, cost: 0.2 });
+    expect(c.ranking.weights).toEqual({ taskFit: 0.45, arena: 0.25, cost: 0.3 });
     expect(c.fetch.timeoutMs).toBe(8000);
     expect(c.matching.fuzzyThreshold).toBe(0.72);
   });

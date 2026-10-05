@@ -1,5 +1,8 @@
 import { describe, it, expect } from "vitest";
-import { rankRecommendations } from "../ranking/task-ranker";
+import {
+  absoluteCostScore,
+  rankRecommendations,
+} from "../ranking/task-ranker";
 import { matchModels } from "../matching/model-matcher";
 
 describe("rankRecommendations", () => {
@@ -36,7 +39,7 @@ describe("rankRecommendations", () => {
       matched,
       arena: [{ model: "Cheap Coder", rank: 1, score: 1200 }],
       profileId: "pythonScript",
-      weights: { taskFit: 0.5, arena: 0.3, cost: 0.2 },
+      weights: { taskFit: 0.45, arena: 0.25, cost: 0.3 },
       reasoningModelPatterns: ["o1", "o3"],
     });
     expect(top[0].sessionModel.id).toBe("a");
@@ -74,7 +77,7 @@ describe("rankRecommendations", () => {
       matched,
       arena: [],
       profileId: "spec",
-      weights: { taskFit: 0.5, arena: 0.3, cost: 0.2 },
+      weights: { taskFit: 0.45, arena: 0.25, cost: 0.3 },
       reasoningModelPatterns: [],
     });
     expect(top).toHaveLength(3);
@@ -444,6 +447,65 @@ describe("rankRecommendations", () => {
     });
     expect(top[0].breakdown.arena).toBeGreaterThan(0);
   });
+
+  it("does not let an ultra-cheap weaker model beat a clearly stronger one", () => {
+    const matched = [
+      {
+        session: { id: "flash", name: "Flash Cheap" },
+        benchmark: {
+          slug: "flash-cheap",
+          name: "Flash Cheap",
+          intelligence: 70,
+          blendedPricePer1M: 0.24,
+          evaluations: {},
+        },
+        score: 1,
+        badges: ["matched" as const],
+      },
+      {
+        session: { id: "opus", name: "Opus Strong" },
+        benchmark: {
+          slug: "opus-strong",
+          name: "Opus Strong",
+          intelligence: 95,
+          blendedPricePer1M: 8,
+          evaluations: {},
+        },
+        score: 1,
+        badges: ["matched" as const],
+      },
+    ];
+    const top = rankRecommendations({
+      matched,
+      arena: [
+        { model: "Flash Cheap", rank: 2, score: 1100 },
+        { model: "Opus Strong", rank: 1, score: 1250 },
+      ],
+      profileId: "spec",
+      weights: { taskFit: 0.45, arena: 0.25, cost: 0.3 },
+      reasoningModelPatterns: [],
+    });
+    expect(top[0].sessionModel.id).toBe("opus");
+    // Absolute log cost: gap is moderate, not a forced 1.0 vs 0.0
+    expect(top[0].breakdown.cost).toBeLessThan(0.5);
+    expect(top[1].breakdown.cost).toBeGreaterThan(0.5);
+    expect(top[1].breakdown.cost - top[0].breakdown.cost).toBeLessThan(0.85);
+  });
+});
+
+describe("absoluteCostScore", () => {
+  it("scores cheaper models higher with a meaningful but non-binary gap", () => {
+    const flash = absoluteCostScore(0.24);
+    const mid = absoluteCostScore(1.5);
+    const opus = absoluteCostScore(8);
+    expect(flash).toBeGreaterThan(mid);
+    expect(mid).toBeGreaterThan(opus);
+    expect(flash).toBeGreaterThan(0.7);
+    expect(opus).toBeLessThan(0.25);
+    // Still far from the old min-max 1.0 vs 0.0 on 1/price
+    expect(flash - opus).toBeLessThan(0.9);
+    expect(flash - opus).toBeGreaterThan(0.4);
+  });
 });
 
 describe("matcher + ranker integration", () => {
@@ -497,7 +559,7 @@ describe("matcher + ranker integration", () => {
       matched,
       arena: [],
       profileId: "spec",
-      weights: { taskFit: 0.5, arena: 0.3, cost: 0.2 },
+      weights: { taskFit: 0.45, arena: 0.25, cost: 0.3 },
       reasoningModelPatterns: [],
     });
     expect(top).toHaveLength(3);

@@ -42,6 +42,16 @@ Other settings use sensible defaults (`taskModelAdvisor.enabled`, Arena categori
 2. Wait for benchmarks and session models to load.
 3. Choose one of up to **three** recommendations (Validate, Copy configuration, or Refresh benchmarks).
 
+## Ranking eval matrix
+
+Synthetic catalog (Cursor-like session models + AA/Arena fixtures). Runs matching + ranking for every task profile and prints top-3 with score breakdowns:
+
+```bash
+npm run eval:ranking
+```
+
+Edit fixtures in `src/ranking/eval-fixtures.ts` to stress-test scenarios.
+
 ## Privacy
 
 - **Network:** HTTP requests run **only** when you invoke the recommend command or choose **Refresh benchmarks** — not in the background.
@@ -50,6 +60,8 @@ Other settings use sensible defaults (`taskModelAdvisor.enabled`, Arena categori
 
 ## Known limitations
 
+- Ranking: base weights `0.45×taskFit + 0.25×arena + 0.3×cost`, with a per-profile tilt (spec more quality; userStory / pythonScript more cost-aware). Cost uses absolute log $/1M (~$0.10–$15). Top-3 also injects a cheaper matched alternative when the leader is expensive.
+- Recommendation UI shows `score · fit · arena · cost` on each row.
 - **Validate on Cursor (experimental):** applies model via `cursorai.action.switchToModelSlug` with `modelIdWithParams` (includes `effort` for thinking, optional `context` hint). Then probes a full `modelConfig` (incl. `maxMode`) for high-context recs — Max Mode may only stick on some Cursor builds. Clipboard JSON always as backup. Set `taskModelAdvisor.applyStrategy` to `clipboard-only` to skip.
 - **Cursor models:** Cursor does **not** expose Agent models through `vscode.lm`. The extension tries, in order: `vscode.lm` → Cursor CLI (`agent --list-models`, with optional `taskModelAdvisor.cursor.apiKey`) → Cursor API `GET /v1/models` → manual multi-select from `taskModelAdvisor.fallbackModels`.
 - Create a Cursor API key at [cursor.com/dashboard](https://cursor.com/dashboard) → **API Keys**, then set `taskModelAdvisor.cursor.apiKey`. Alternatively run `agent login` in a terminal so the CLI can list models.

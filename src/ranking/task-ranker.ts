@@ -9,8 +9,14 @@ import type {
   TaskProfileId,
 } from "../types";
 
-const EPSILON = 0.01;
 const WEAK_SCORE_OFFSET = 0.001;
+/**
+ * Log-price anchors for absolute cost score ($/1M).
+ * Ceiling ~$15 so frontier models (~$6–8) are clearly expensive without
+ * the old 1/price min-max that made flash models auto-win.
+ */
+const COST_PRICE_FLOOR = 0.1;
+const COST_PRICE_CEILING = 15;
 
 const THINKING_LEVELS = ["off", "low", "medium", "high"] as const;
 
@@ -252,9 +258,58 @@ function costTierFromPrice(
   return "medium";
 }
 
+/**
+ * Absolute cost efficiency in [0, 1] from blended $/1M.
+ * Uses a fixed log scale so $0.24 vs $8 is a meaningful gap, not a forced 1.0 vs 0.0.
+ */
+export function absoluteCostScore(pricePer1M: number): number {
+  if (!Number.isFinite(pricePer1M) || pricePer1M <= 0) return 0.5;
+  const lo = Math.log(COST_PRICE_FLOOR);
+  const hi = Math.log(COST_PRICE_CEILING);
+  const t = (Math.log(pricePer1M) - lo) / (hi - lo);
+  const clamped = Math.min(1, Math.max(0, t));
+  return 1 - clamped;
+}
+
+/**
+ * Profile-specific tilt on top of configured weights.
+ * Spec stays quality-first; userStory / pythonScript lean more on cost so Opus
+ * does not monopolize every task type.
+ */
+export function resolveProfileWeights(
+  profileId: TaskProfileId,
+  base: RankingWeights
+): RankingWeights {
+  switch (profileId) {
+    case "spec":
+      return {
+        taskFit: base.taskFit + 0.05,
+        arena: base.arena,
+        cost: Math.max(0.15, base.cost - 0.05),
+      };
+    case "userStory":
+      return {
+        taskFit: Math.max(0.3, base.taskFit - 0.05),
+        arena: Math.max(0.15, base.arena - 0.05),
+        cost: base.cost + 0.1,
+      };
+    case "pythonScript":
+      return {
+        taskFit: base.taskFit,
+        arena: Math.max(0.15, base.arena - 0.05),
+        cost: base.cost + 0.05,
+      };
+    case "testScenario":
+    case "other":
+    default:
+      return { ...base };
+  }
+}
+
 export function rankRecommendations(input: RankRecommendationsInput): Recommendation[] {
-  const { matched, arena, profileId, weights, reasoningModelPatterns, customText } =
+  const { matched, arena, profileId, weights: baseWeights, reasoningModelPatterns, customText } =
     input;
+  const weights = resolveProfileWeights(profileId, baseWeights);
   const arenaByKey = buildArenaLookup(arena);
   const useElo = arena.some((e) => e.score != null);
 
@@ -272,16 +327,6 @@ export function rankRecommendations(input: RankRecommendationsInput): Recommenda
   );
   const normArena = normalizeArenaScores(rawArena, useElo);
 
-  const rawCosts = withBenchmark.map((m) => {
-    const price = m.benchmark!.blendedPricePer1M;
-    if (price == null || price <= 0) return null;
-    return 1 / (price + EPSILON);
-  });
-  const definedCosts = rawCosts.filter((c): c is number => c != null);
-  const normCostPool =
-    definedCosts.length > 0 ? minMax(definedCosts) : ([] as number[]);
-  let costIdx = 0;
-
   const pricesAmongMatched = withBenchmark
     .map((m) => m.benchmark!.blendedPricePer1M)
     .filter((p): p is number => p != null && p > 0 && Number.isFinite(p));
@@ -289,14 +334,11 @@ export function rankRecommendations(input: RankRecommendationsInput): Recommenda
   const scoredMatched: Recommendation[] = withBenchmark.map((m, i) => {
     const taskFit = Number.isFinite(normTaskFits[i]) ? (normTaskFits[i] ?? 0) : 0;
     const arenaNorm = Number.isFinite(normArena[i]) ? (normArena[i] ?? 0) : 0;
-    let cost: number;
-    if (rawCosts[i] == null) {
-      cost = 0.5;
-    } else {
-      cost = normCostPool[costIdx] ?? 0.5;
-      costIdx++;
-      if (!Number.isFinite(cost)) cost = 0.5;
-    }
+    const price = m.benchmark!.blendedPricePer1M;
+    const cost =
+      price != null && price > 0 && Number.isFinite(price)
+        ? absoluteCostScore(price)
+        : 0.5;
     const blendedPricePer1M =
       m.benchmark!.blendedPricePer1M != null &&
       Number.isFinite(m.benchmark!.blendedPricePer1M)
@@ -368,5 +410,35 @@ export function rankRecommendations(input: RankRecommendationsInput): Recommenda
     .sort((a, b) => b.score - a.score)
     .concat(scoredWeak);
 
-  return ranked.slice(0, 3);
+  return diversifyTop3(ranked).slice(0, 3);
+}
+
+/**
+ * Keep the best overall #1, but try to surface at least one cheaper matched
+ * alternative in the top 3 so premium models do not monopolize every slot.
+ * Final order stays score-descending among the selected three.
+ */
+export function diversifyTop3(ranked: Recommendation[]): Recommendation[] {
+  if (ranked.length <= 3) return ranked.slice(0, 3);
+  const primary = ranked[0]!;
+  const rest = ranked.slice(1);
+  const primaryPrice = primary.blendedPricePer1M;
+
+  const valuePick = rest.find((r) => {
+    if (!r.badges.includes("matched")) return false;
+    if (r.breakdown.cost < 0.35) return false;
+    if (primaryPrice == null || r.blendedPricePer1M == null) {
+      return r.breakdown.cost >= primary.breakdown.cost + 0.15;
+    }
+    return r.blendedPricePer1M <= primaryPrice * 0.55;
+  });
+
+  const chosen = new Set<string>([primary.sessionModel.id]);
+  if (valuePick) chosen.add(valuePick.sessionModel.id);
+  for (const r of rest) {
+    if (chosen.size >= 3) break;
+    chosen.add(r.sessionModel.id);
+  }
+
+  return ranked.filter((r) => chosen.has(r.sessionModel.id)).slice(0, 3);
 }

@@ -16,7 +16,7 @@ export const DEFAULT_CONFIG: AdvisorConfig = {
     categories: { ...DEFAULT_ARENA_CATEGORIES },
   },
   ranking: {
-    weights: { taskFit: 0.5, arena: 0.3, cost: 0.2 },
+    weights: { taskFit: 0.45, arena: 0.25, cost: 0.3 },
   },
   modelAliases: {},
   matching: { fuzzyThreshold: 0.72 },
