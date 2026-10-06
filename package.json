@@ -4,6 +4,10 @@
   "description": "Recommend the best available LLM (model, context, thinking) for a task using live benchmarks.",
   "version": "0.1.0",
   "publisher": "local",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/JoffreyT/task-model-advisor.git"
+  },
   "engines": {
     "vscode": "^1.90.0"
   },
@@ -135,7 +139,7 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "eval:ranking": "vitest run ranking-eval --reporter=verbose",
-    "package": "vsce package",
+    "package": "vsce package --skip-license",
     "prepare": "husky"
   },
   "lint-staged": {
