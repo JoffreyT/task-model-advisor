@@ -1,0 +1,358 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Task Model Advisor — demo mock-up</title>
+    <style>
+      * {
+        box-sizing: border-box;
+        margin: 0;
+      }
+      html,
+      body {
+        width: 960px;
+        height: 540px;
+        overflow: hidden;
+        background: #1e1e1e;
+        color: #cccccc;
+        font-family: -apple-system, "SF Pro Text", "Segoe UI", sans-serif;
+        font-size: 13px;
+      }
+      .mono {
+        font-family: "SF Mono", Menlo, Consolas, monospace;
+      }
+      .title {
+        height: 30px;
+        background: #323233;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 12px;
+        color: #9d9d9d;
+        position: relative;
+      }
+      .dots {
+        position: absolute;
+        left: 12px;
+        display: flex;
+        gap: 7px;
+      }
+      .dots i {
+        width: 11px;
+        height: 11px;
+        border-radius: 50%;
+        display: block;
+      }
+      .editor {
+        padding: 22px 28px;
+        line-height: 21px;
+        font-size: 13px;
+        color: #6e7681;
+      }
+      .editor b {
+        color: #569cd6;
+        font-weight: 400;
+      }
+      .editor u {
+        color: #ce9178;
+        text-decoration: none;
+      }
+      .editor s {
+        color: #6a9955;
+        text-decoration: none;
+      }
+      .status {
+        position: absolute;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        height: 24px;
+        background: #007acc;
+        color: #fff;
+        font-size: 12px;
+        display: flex;
+        align-items: center;
+        padding: 0 12px;
+        gap: 18px;
+      }
+      .qp {
+        position: absolute;
+        top: 30px;
+        left: 50%;
+        transform: translateX(-50%);
+        width: 640px;
+        background: #252526;
+        border: 1px solid #454545;
+        border-radius: 8px;
+        box-shadow: 0 10px 40px rgba(0, 0, 0, 0.6);
+        overflow: hidden;
+      }
+      .qp .input {
+        margin: 6px;
+        padding: 5px 8px;
+        background: #3c3c3c;
+        border: 1px solid #007fd4;
+        border-radius: 3px;
+        height: 28px;
+        display: flex;
+        align-items: center;
+        color: #ccc;
+      }
+      .caret {
+        display: inline-block;
+        width: 1px;
+        height: 15px;
+        background: #fff;
+        margin-left: 1px;
+      }
+      .ph {
+        color: #8a8a8a;
+      }
+      .list {
+        padding: 2px 0 6px;
+      }
+      .item {
+        padding: 5px 12px;
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+        min-height: 26px;
+      }
+      .item.sel {
+        background: #04395e;
+        color: #fff;
+      }
+      .row {
+        display: flex;
+        gap: 10px;
+        align-items: baseline;
+      }
+      .desc {
+        color: #9d9d9d;
+        font-size: 12px;
+      }
+      .sel .desc {
+        color: #c5d9ea;
+      }
+      .detail {
+        color: #8a8a8a;
+        font-size: 11.5px;
+        line-height: 16px;
+      }
+      .sel .detail {
+        color: #b5cde0;
+      }
+      .spark {
+        color: #e2c08d;
+      }
+      .sep {
+        padding: 3px 12px;
+        font-size: 11px;
+        color: #8a8a8a;
+        border-top: 1px solid #3a3a3a;
+        margin-top: 2px;
+      }
+      .toast {
+        position: absolute;
+        right: 18px;
+        bottom: 38px;
+        width: 400px;
+        background: #252526;
+        border: 1px solid #454545;
+        border-radius: 6px;
+        padding: 12px 14px;
+        box-shadow: 0 6px 24px rgba(0, 0, 0, 0.55);
+        line-height: 18px;
+      }
+      .toast .ttl {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        color: #cccccc;
+      }
+      .toast .sub {
+        color: #9d9d9d;
+        font-size: 12px;
+        margin-top: 4px;
+      }
+      .bar {
+        height: 2px;
+        background: #0e639c;
+        margin: 10px -14px -12px;
+        width: 55%;
+      }
+      .ok {
+        color: #3fb950;
+      }
+      .info {
+        color: #3794ff;
+      }
+      .cap {
+        position: absolute;
+        left: 0;
+        right: 0;
+        bottom: 34px;
+        text-align: center;
+      }
+      .cap span {
+        display: inline-block;
+        background: rgba(0, 0, 0, 0.72);
+        color: #fff;
+        padding: 6px 14px;
+        border-radius: 999px;
+        font-size: 13px;
+        letter-spacing: 0.1px;
+      }
+      .kbd {
+        background: #3c3c3c;
+        border: 1px solid #555;
+        border-radius: 4px;
+        padding: 0 6px;
+        font-size: 11px;
+        margin-left: 4px;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="title">
+      <div class="dots">
+        <i style="background: #ff5f57"></i><i style="background: #febc2e"></i
+        ><i style="background: #28c840"></i>
+      </div>
+      docs-spec.md — my-project
+    </div>
+    <div class="editor mono">
+      <s># Payment service — functional spec</s><br />
+      <br />
+      <b>##</b> 1. Context<br />
+      The checkout flow must support <u>3-D Secure</u> and retries on soft declines.<br />
+      <br />
+      <b>##</b> 2. Requirements<br />
+      - R1. A failed payment is retried at most <u>3 times</u>.<br />
+      - R2. ...
+    </div>
+    <div class="status"><span>main</span><span>Ln 9, Col 8</span><span>Markdown</span></div>
+    <div id="stage"></div>
+    <div id="cap" class="cap"></div>
+
+    <script>
+      const sparkle = '<span class="spark">✦</span>';
+      const caret = '<span class="caret"></span>';
+
+      function palette(typed, showItem) {
+        return `
+        <div class="qp">
+          <div class="input mono"><span style="color:#ccc">&gt;&nbsp;</span>${typed}${caret}</div>
+          <div class="list">${
+            showItem
+              ? `<div class="item sel"><div class="row"><span>Task Model Advisor: Recommend a model for this task</span><span class="desc" style="margin-left:auto">recently used <span class="kbd mono">⌘⌥R</span></span></div></div>`
+              : ""
+          }</div>
+        </div>`;
+      }
+
+      function picker(placeholder, items, extra = "") {
+        return `
+        <div class="qp">
+          <div class="input"><span class="ph">${placeholder}</span></div>
+          <div class="list">${items}</div>${extra}
+        </div>`;
+      }
+
+      const presets = (sel) =>
+        [
+          "Écrire une spec",
+          "Écrire une user story",
+          "Écrire un scénario de test",
+          "Écrire un script Python pour automatiser une action",
+          "Autre",
+        ]
+          .map(
+            (l, i) =>
+              `<div class="item ${i === sel ? "sel" : ""}"><div class="row"><span>${l}</span></div></div>`
+          )
+          .join("");
+
+      const recs = (sel) => {
+        const data = [
+          [
+            "Claude Opus 5.5 Medium",
+            "$8.00/1M · cher · high · think:medium",
+            "score 0.78 · fit 1.00 · arena 1.00 · cost 0.13 · Strong task fit and Arena rank. ~$8.00/1M tokens. [matched]",
+          ],
+          [
+            "Claude Opus 5 High",
+            "$8.00/1M · cher · high · think:medium",
+            "score 0.73 · fit 0.94 · arena 0.92 · cost 0.13 · Strong task fit and Arena rank. ~$8.00/1M tokens. [matched]",
+          ],
+          [
+            "Grok 4.6 Medium",
+            "$2.20/1M · bon marché · high · think:medium",
+            "score 0.44 · fit 0.44 · arena 0.47 · cost 0.38 · Strong task fit and Arena rank. ~$2.20/1M tokens. [matched]",
+          ],
+        ];
+        return data
+          .map(
+            ([n, d, x], i) =>
+              `<div class="item ${i === sel ? "sel" : ""}"><div class="row"><span>${sparkle} ${n}</span><span class="desc">${d}</span></div><div class="detail">${x}</div></div>`
+          )
+          .join("");
+      };
+
+      const actions = (sel) =>
+        [
+          ["✓", "Valider (copier la config)"],
+          ["⧉", "Copier seulement"],
+          ["↻", "Actualiser les benchmarks"],
+        ]
+          .map(
+            ([i, l], k) =>
+              `<div class="item ${k === sel ? "sel" : ""}"><div class="row"><span>${i} ${l}</span></div></div>`
+          )
+          .join("");
+
+      const toast = (icon, cls, title, sub, bar = false) => `
+        <div class="toast"><div class="ttl"><span class="${cls}">${icon}</span><span>${title}</span></div>
+        ${sub ? `<div class="sub">${sub}</div>` : ""}${bar ? '<div class="bar"></div>' : ""}</div>`;
+
+      const frames = [
+        // 0
+        { cap: "Press ⌘⌥R — or open the Command Palette", html: palette("Task Mod", true) },
+        // 1
+        { cap: "Pick the task you are about to run", html: picker("", presets(0)) },
+        // 2
+        {
+          cap: "Live benchmarks + the models you can actually select",
+          html: toast("⟳", "info", "Task Model Advisor", "", true),
+        },
+        // 3
+        {
+          cap: "Your top 3 — model, context, thinking effort, price",
+          html: picker("Choisissez une recommandation (coût = $/1M tokens AA)", recs(0)),
+        },
+        // 4
+        {
+          cap: "Your top 3 — model, context, thinking effort, price",
+          html: picker("Choisissez une recommandation (coût = $/1M tokens AA)", recs(2)),
+        },
+        // 5
+        { cap: "Validate, copy, or refresh", html: picker("Action", actions(0)) },
+        // 6
+        {
+          cap: "Done — config applied or copied to your clipboard",
+          html: toast(
+            "ⓘ",
+            "info",
+            'Task Model Advisor: modèle "Grok 4.6 Medium" (~$2.20/1M), contexte "high", thinking "medium". Config copiée — applique-les manuellement dans le sélecteur Agent.',
+            ""
+          ),
+        },
+      ];
+
+      const f = Number(new URLSearchParams(location.search).get("f") || 0);
+      const frame = frames[f] || frames[0];
+      document.getElementById("stage").innerHTML = frame.html;
+      document.getElementById("cap").innerHTML = frame.cap ? `<span>${frame.cap}</span>` : "";
+    </script>
+  </body>
+</html>

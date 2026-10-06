@@ -1,3 +1,4 @@
+import { FUZZY_THRESHOLD, RANKING_WEIGHTS, REASONING_MODEL_PATTERNS } from "../constants";
 import { matchModels } from "../matching/model-matcher";
 import type { AdvisorConfig, Recommendation, TaskProfileId } from "../types";
 import { formatScoreBreakdown } from "../ui/format-recommendation";
@@ -29,13 +30,11 @@ export interface EvalMatrixOptions {
   otherCustomTexts?: string[];
 }
 
-const DEFAULT_WEIGHTS = { taskFit: 0.45, arena: 0.25, cost: 0.3 };
-
 export function runEvalMatrix(options: EvalMatrixOptions = {}): EvalProfileResult[] {
-  const weights = options.weights ?? DEFAULT_WEIGHTS;
-  const threshold = options.fuzzyThreshold ?? 0.72;
+  const weights = options.weights ?? RANKING_WEIGHTS;
+  const threshold = options.fuzzyThreshold ?? FUZZY_THRESHOLD;
   const aliases = options.aliases ?? EVAL_ALIASES;
-  const patterns = options.reasoningModelPatterns ?? ["o1", "o3", "deepseek-r1", "extended"];
+  const patterns = options.reasoningModelPatterns ?? REASONING_MODEL_PATTERNS;
 
   const matched = matchModels(EVAL_SESSION_MODELS, EVAL_BENCHMARKS, aliases, threshold);
   const matchedCount = matched.filter((m) => m.badges.includes("matched")).length;

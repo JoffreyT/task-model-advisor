@@ -51,7 +51,6 @@ export interface RankingWeights {
 }
 
 export interface AdvisorConfig {
-  enabled: boolean;
   artificialAnalysis: { apiKey: string };
   arena: {
     source: ArenaSource;
@@ -63,8 +62,6 @@ export interface AdvisorConfig {
   applyStrategy: ApplyStrategy;
   fetch: { timeoutMs: number };
   reasoningModelPatterns: string[];
-  /** Used when vscode.lm.selectChatModels() is empty (typical on Cursor). */
-  fallbackModels: string[];
   /** Optional Cursor user/service API key for `agent --list-models` / GET /v1/models. */
   cursor: { apiKey: string };
 }

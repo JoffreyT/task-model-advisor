@@ -70,10 +70,8 @@ function rawTaskFit(benchmark: BenchmarkModel, profileId: TaskProfileId): number
       return intel;
     }
     case "userStory":
-    case "other":
-      return (benchmark.intelligence ?? 0) * 0.8;
     case "testScenario":
-      return benchmark.intelligence ?? 0;
+    case "other":
     default:
       return benchmark.intelligence ?? 0;
   }

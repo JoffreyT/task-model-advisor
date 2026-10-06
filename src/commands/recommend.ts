@@ -17,33 +17,14 @@ import type {
   TaskProfileId,
 } from "../types";
 import { showRecommendations } from "../ui/recommendation-ui";
-import { pickFallbackSessionModels } from "../ui/session-model-picker";
 import { pickTask } from "../ui/task-picker";
 
 function loadAdvisorConfig(): AdvisorConfig {
   const section = vscode.workspace.getConfiguration("taskModelAdvisor");
   return resolveConfig({
-    enabled: section.get<boolean>("enabled"),
     artificialAnalysis: {
       apiKey: section.get<string>("artificialAnalysis.apiKey"),
     },
-    arena: {
-      source: section.get<string>("arena.source"),
-      categories: section.get<Record<string, string>>("arena.categories"),
-    },
-    ranking: {
-      weights: section.get<AdvisorConfig["ranking"]["weights"]>("ranking.weights"),
-    },
-    modelAliases: section.get<Record<string, string>>("modelAliases"),
-    matching: {
-      fuzzyThreshold: section.get<number>("matching.fuzzyThreshold"),
-    },
-    applyStrategy: section.get<AdvisorConfig["applyStrategy"]>("applyStrategy"),
-    fetch: {
-      timeoutMs: section.get<number>("fetch.timeoutMs"),
-    },
-    reasoningModelPatterns: section.get<string[]>("reasoningModelPatterns"),
-    fallbackModels: section.get<string[]>("fallbackModels"),
     cursor: {
       apiKey: section.get<string>("cursor.apiKey"),
     },
@@ -117,13 +98,6 @@ async function fetchBenchmarksAndSession(
 export async function runRecommendCommand(): Promise<void> {
   const config = loadAdvisorConfig();
 
-  if (!config.enabled) {
-    void vscode.window.showWarningMessage(
-      "Task Model Advisor is disabled. Enable taskModelAdvisor.enabled in settings."
-    );
-    return;
-  }
-
   const task = await pickTask();
   if (!task) return;
 
@@ -153,20 +127,13 @@ export async function runRecommendCommand(): Promise<void> {
       return;
     }
 
-    const { benchmarks, arena, sessionModels: discovered, warnings } = bundle;
+    const { benchmarks, arena, sessionModels, warnings } = bundle;
 
-    let sessionModels = discovered;
     if (sessionModels.length === 0) {
-      void vscode.window.showInformationMessage(
-        "Could not auto-discover Cursor models. Select models from your Agent picker (or set taskModelAdvisor.cursor.apiKey / run `agent login`)."
+      void vscode.window.showErrorMessage(
+        "No chat models found in this session. Sign in to your AI provider (e.g. GitHub Copilot). On Cursor, set taskModelAdvisor.cursor.apiKey or run `agent login`."
       );
-      const picked = await pickFallbackSessionModels(config.fallbackModels);
-      if (!picked || picked.length === 0) {
-        void vscode.window.showErrorMessage("No session models selected. Cancelled.");
-        return;
-      }
-      sessionModels = picked;
-      warnings.push("Session models were selected manually (auto-discovery failed).");
+      return;
     }
 
     const matched = matchModels(

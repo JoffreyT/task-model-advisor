@@ -1,6 +1,16 @@
 # Contributing to Task Model Advisor
 
-Developer and release notes. End-user docs live in [README.md](README.md).
+Everything for developers: setup, how the extension works, tuning, testing and release.
+End-user docs live in [README.md](README.md).
+
+**Contents**
+
+1. [Development setup](#development-setup)
+2. [Scripts](#scripts)
+3. [How it works](#how-it-works)
+4. [Tuning and extending](#tuning-and-extending)
+5. [Design docs](#design-docs)
+6. [Release](#release)
 
 ## Development setup
 
@@ -12,7 +22,7 @@ npm run lint
 npm run watch   # optional: tsc --watch
 ```
 
-`npm install` runs `prepare` → installs the Husky **pre-commit** hook. On each commit: **lint-staged** (ESLint + Prettier on staged files), then **`npm test`**. Either failure blocks the commit.
+`npm install` runs `prepare` → installs the Husky **pre-commit** hook. On each commit: **lint-staged** (ESLint + Prettier check on staged files), then `npm test`. Either failure blocks the commit.
 
 **Extension Development Host (F5)**
 
@@ -23,7 +33,7 @@ npm run watch   # optional: tsc --watch
 **Packaged `.vsix`**
 
 ```bash
-npm run package   # → task-model-advisor-0.1.0.vsix
+npm run package   # → task-model-advisor-<version>.vsix
 ```
 
 ## Scripts
@@ -39,11 +49,147 @@ npm run package   # → task-model-advisor-0.1.0.vsix
 | `npm run eval:ranking` | Synthetic ranking matrix (see below) |
 | `npm run package`      | `vsce package` → `.vsix`             |
 
-Pre-commit: Husky → `lint-staged` (ESLint + Prettier on staged files), then `npm test`.
+## How it works
 
-## Ranking eval matrix
+### Pipeline
 
-Synthetic catalog (Cursor-like session models + AA/Arena fixtures). Runs matching + ranking for every task profile and prints top-3 with score breakdowns:
+```text
+ pickTask ──► fetch in parallel ──► match ──► rank ──► QuickPick ──► apply / copy / refresh
+              ├─ Artificial Analysis  (benchmarks, pricing)
+              ├─ Arena leaderboard    (soft-fail)
+              └─ session models       (vscode.lm → Cursor CLI → Cursor API)
+```
+
+Orchestrated by `runRecommendCommand` in `src/commands/recommend.ts`. **Refresh** loops back to the fetch step with the same task.
+
+### Module map
+
+| Path                                   | Role                                                         |
+| -------------------------------------- | ------------------------------------------------------------ |
+| `src/extension.ts`                     | `activate`: registers the command, then seeds settings       |
+| `src/seed-settings.ts`                 | Writes unset `taskModelAdvisor.*` keys to User settings      |
+| `src/config.ts`                        | Builds `AdvisorConfig` from the two API keys + constants     |
+| `src/constants.ts`                     | Every tunable that is **not** a user setting                 |
+| `src/commands/recommend.ts`            | The end-to-end flow                                          |
+| `src/task/presets.ts`                  | The 5 task entries shown first                               |
+| `src/task/classify-other.ts`           | Regex classifier for **Autre** free text                     |
+| `src/providers/artificial-analysis.ts` | AA Data API client and mapping to `BenchmarkModel`           |
+| `src/providers/arena.ts`               | Arena leaderboard client (wulong mirror)                     |
+| `src/host/model-discovery.ts`          | Session models: `vscode.lm`, then Cursor fallbacks           |
+| `src/host/cursor-model-discovery.ts`   | `agent --list-models` and `GET /v1/models`                   |
+| `src/matching/`                        | Name normalization, similarity, session ↔ benchmark matching |
+| `src/ranking/task-ranker.ts`           | Scoring, context/thinking heuristics, top-3 selection        |
+| `src/ranking/eval-*.ts`                | Synthetic catalog and matrix for tuning                      |
+| `src/apply/`                           | Clipboard payload and Cursor model switching                 |
+| `src/ui/`                              | QuickPick UI and score formatting                            |
+
+### Settings vs constants
+
+Only the two API keys are user settings (`artificialAnalysis.apiKey`, `cursor.apiKey`). Everything else is a constant in `src/constants.ts`: Arena source and categories, ranking weights, model aliases, fuzzy threshold, apply strategy, fetch timeout, reasoning-model patterns.
+
+On activation, `seedUnsetUserSettings` writes any key that is unset in user, workspace and workspace-folder scope into **User** settings, using the `package.json` default. A test fails if `SETTING_KEYS` and `contributes.configuration.properties` diverge. Details: [seed spec](docs/superpowers/specs/2026-10-06-seed-default-settings-design.md).
+
+### Data sources
+
+| Source              | Endpoint                                                                 | Auth                | Used for                                                               |
+| ------------------- | ------------------------------------------------------------------------ | ------------------- | ---------------------------------------------------------------------- |
+| Artificial Analysis | `GET https://artificialanalysis.ai/api/v2/data/llms/models`              | `x-api-key`         | Intelligence / coding index, evaluations, blended $/1M, context tokens |
+| Arena (mirror)      | `GET https://api.wulong.dev/arena-ai-leaderboards/v1/leaderboard?name=…` | none                | Rank and optional Elo score per category                               |
+| Cursor API          | `GET https://api.cursor.com/v1/models`                                   | `Bearer` Cursor key | Session models, last resort on Cursor                                  |
+
+- AA failures (**missing key, HTTP, timeout, parse**) are fatal: the command shows an error and exits.
+- Arena failures are **non-fatal**: a warning is shown and ranking continues on AA only. Category fallback chain: `hard_prompts` → `text`, `coding` → `code`. A `404` or an empty list moves to the next name.
+- All requests use `AbortSignal.timeout(FETCH_TIMEOUT_MS)` (8 s).
+
+### Session model discovery
+
+Order in `discoverSessionModels`:
+
+1. `vscode.lm.selectChatModels()`. Used as-is when non-empty (VS Code + Copilot).
+2. If empty and the host looks like Cursor (or a Cursor key is set): Cursor CLI — `agent --list-models`, then `agent models`, with `--api-key` / `CURSOR_API_KEY` when a key is set.
+3. If a key is set and the CLI yielded nothing: Cursor API `GET /v1/models`.
+4. Still empty → the command stops with an error.
+
+Cursor does not expose Agent models through `vscode.lm`, hence steps 2–3.
+
+### Matching
+
+Each session model is linked to a benchmark model:
+
+1. Alias lookup by session `id` or `name` (`MODEL_ALIASES`, empty by default).
+2. Otherwise best similarity between normalized names/slugs; accepted above `FUZZY_THRESHOLD` (0.72).
+3. Badges: `matched`, `weak` (no reliable benchmark), `enterprise` (id or name contains "enterprise" / "entreprise").
+
+### Ranking
+
+`final score = wTaskFit × taskFit + wArena × arena + wCost × cost`, each component in [0, 1].
+
+**Task fit** (min-max normalized across matched models):
+
+| Profile                              | Raw signal                                                                |
+| ------------------------------------ | ------------------------------------------------------------------------- |
+| `pythonScript`                       | coding index × 0.7 + LiveCodeBench × 0.3 (falls back to whichever exists) |
+| `spec`                               | mean of intelligence index and GDPval / writing eval when present         |
+| `testScenario`, `userStory`, `other` | intelligence index                                                        |
+
+**Arena**: if any entry has an Elo score, Elo is min-max normalized; otherwise `1 - (rank - 1) / n`. No entry → 0.
+
+**Cost**: absolute log scale, not min-max, so a $0.24 model and a $8 model are meaningfully apart:
+
+```text
+cost = 1 - clamp( (ln(price) - ln(0.10)) / (ln(15) - ln(0.10)) )     unknown price → 0.5
+```
+
+**Weights**: base `0.45 / 0.25 / 0.30` (`RANKING_WEIGHTS`), tilted per profile in `resolveProfileWeights`:
+
+| Profile        | taskFit | arena | cost |
+| -------------- | ------- | ----- | ---- |
+| `spec`         | 0.50    | 0.25  | 0.25 |
+| `userStory`    | 0.40    | 0.20  | 0.40 |
+| `pythonScript` | 0.45    | 0.20  | 0.35 |
+| other profiles | 0.45    | 0.25  | 0.30 |
+
+Cost weight tuning rule of thumb: too high → cheap flash models dominate; too low → expensive Opus everywhere.
+
+**Output**
+
+- **Weak** models are appended after all matched ones, with a zeroed breakdown.
+- `diversifyTop3` keeps the #1 and tries to include one cheaper matched alternative (cost score ≥ 0.35 and price ≤ 55% of the leader's, or a clearly better cost score when a price is unknown). The final three are ordered by score.
+- **Context window**: profile default (`spec` high, `pythonScript` standard, others medium), capped by the model's real context size (< 48k standard, < 100k medium, else high), bumped one tier when custom text mentions codebase / repo / monorepo / multi-fichier / large / gros.
+- **Thinking effort**: profile default (`userStory` low, others medium), bumped one level for reasoning models (`REASONING_MODEL_PATTERNS`: `o1`, `o3`, `deepseek-r1`, `extended`).
+- The UI row shows `score · fit · arena · cost`.
+
+### Applying a recommendation
+
+Every **Validate** and **Copy** writes this to the clipboard first:
+
+```json
+{
+  "model": "Claude Opus 5.5 Medium",
+  "modelId": "claude-opus-5-5-medium",
+  "contextWindow": "high",
+  "thinkingEffort": "medium",
+  "task": "spec",
+  "rank": 1,
+  "scoreBreakdown": { "taskFit": 1, "arena": 1, "cost": 0.13 },
+  "blendedPricePer1M": 8,
+  "costTier": "high"
+}
+```
+
+- **VS Code:** nothing else to apply; an info message tells the user what to select.
+- **Cursor (experimental):** `tryApplyCursorModel` probes undocumented commands in order, without checking `getCommands()` (many Cursor actions are filtered from that list):
+  1. `cursorai.action.switchToModelSlug` (and the `Glass` variants) with `modelIdWithParams` = `{ modelId, params: [{ id: "effort" }, { id: "context" }] }`, then `newAgentWithModel`.
+  2. A second probe with a full `modelConfig` to set Max Mode (**on** only for `high` context).
+  - Model ids tried: the session `id`, the `name`, and slugified variants of both.
+  - A failure at any point falls back to the manual message. The clipboard JSON is always there.
+- `APPLY_STRATEGY` (`auto-then-manual`) is a constant; `clipboard-only` skips auto-apply.
+
+## Tuning and extending
+
+### Ranking eval matrix
+
+Synthetic catalog (Cursor-like session models + AA/Arena fixtures). Runs matching + ranking for every task profile and prints the top 3 with score breakdowns:
 
 ```bash
 npm run eval:ranking
@@ -51,50 +197,61 @@ npm run eval:ranking
 
 Edit fixtures in `src/ranking/eval-fixtures.ts` to stress-test scenarios.
 
-### Ranking notes (for tuning)
+### Common changes
 
-- Base weights: `0.45×taskFit + 0.25×arena + 0.3×cost`, with a per-profile tilt (spec → more quality; userStory / pythonScript → more cost-aware).
-- Cost uses absolute log $/1M (~$0.10–$15). Too much cost weight → cheap flash models dominate; too little → expensive Opus everywhere.
-- Top-3 injects a cheaper matched alternative when the leader is expensive (`diversifyTop3`).
-- Recommendation UI shows `score · fit · arena · cost` on each row.
+| I want to…                 | Edit                                                                                                  |
+| -------------------------- | ----------------------------------------------------------------------------------------------------- |
+| Change base weights        | `RANKING_WEIGHTS` in `src/constants.ts`, then re-run `npm run eval:ranking`                           |
+| Change per-task tilt       | `resolveProfileWeights` in `src/ranking/task-ranker.ts`                                               |
+| Map a host model to a slug | `MODEL_ALIASES` in `src/constants.ts`                                                                 |
+| Treat a model as reasoning | `REASONING_MODEL_PATTERNS` in `src/constants.ts`                                                      |
+| Add a new user setting     | `contributes.configuration` in `package.json`, `SETTING_KEYS`, `resolveConfig` (a test checks parity) |
 
-### Host / apply notes
+### Adding a task profile
 
-- **Cursor models:** Cursor does not expose Agent models through `vscode.lm`. Order: `vscode.lm` → Cursor CLI (`agent --list-models`, optional `taskModelAdvisor.cursor.apiKey`) → Cursor API `GET /v1/models` → manual multi-select from `taskModelAdvisor.fallbackModels`.
-- **Validate on Cursor (experimental):** `cursorai.action.switchToModelSlug` with `modelIdWithParams` (effort + optional context hint); probes Max Mode for high-context recs — may not stick on all builds. Clipboard JSON always as backup.
-- **Arena soft-fail:** unreachable mirror → warning + AA-only ranking (expected).
+1. Add the id to `TaskProfileId` in `src/types.ts`.
+2. Add the preset label in `src/task/presets.ts` and keywords in `src/task/classify-other.ts`.
+3. Add its Arena category in `ARENA_CATEGORIES` (`src/constants.ts`).
+4. Define its raw signal in `rawTaskFit`, its defaults in `profileDefaults`, and its tilt in `resolveProfileWeights` (`src/ranking/task-ranker.ts`).
+5. Add tests and an eval-matrix case.
 
 ## Design docs
 
-- Spec: `docs/superpowers/specs/2026-03-22-task-model-advisor-design.md`
-- Plan: `docs/superpowers/plans/2026-10-05-task-model-advisor.md`
+`docs/superpowers/` holds the design history, newest first:
 
-## Acceptance checklist (design §12)
+- Seed settings: [spec](docs/superpowers/specs/2026-10-06-seed-default-settings-design.md) · [plan](docs/superpowers/plans/2026-10-06-seed-default-settings.md)
+- Original: [spec](docs/superpowers/specs/2026-03-22-task-model-advisor-design.md) · [plan](docs/superpowers/plans/2026-10-05-task-model-advisor.md)
+
+> The original spec and plan still describe settings that are now constants (`enabled`, `arena.source`, `modelAliases`, `matching.fuzzyThreshold`, `applyStrategy`, `fallbackModels`…). `src/constants.ts` and this file are the current source of truth.
+
+## Release
+
+### Acceptance checklist (original design §12)
 
 Manual verification before release:
 
 - [ ] **1.** Run the command, pick each of the five task entries, and receive up to three recommendations from **session-available models only**.
 - [ ] **2.** With a valid AA API key and network, recommendations reflect AA pricing/indices and Arena data when the mirror responds.
 - [ ] **3.** With Arena unavailable, recommendations still work with a non-blocking warning.
-- [ ] **4.** **Validate** applies or copies full configuration without throwing.
+- [ ] **4.** **Validate** applies or copies the full configuration without throwing.
 - [ ] **5.** Extension loads on Windows VS Code (Copilot) and macOS Cursor without separate builds.
 - [ ] **6.** Unit test suite covers ranking and matching with at least 20 fixture cases including enterprise alias scenarios (`npm test`).
 
-## Manual test matrix (owner)
+### Manual test matrix (owner)
 
-| Scenario                                               | Expected                                                                                                         |
-| ------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------- |
-| **macOS Cursor** — recommend after chat is available   | Top 3 from session models; badges and rationale shown.                                                           |
-| **Windows VS Code + Copilot** — same flow              | Same behavior; models match Copilot allowlist labels.                                                            |
-| **Bad / missing AA API key** or network blocked for AA | Clear error (Artificial Analysis fetch failed); command exits without crash.                                     |
-| **Arena down** (mirror unreachable; mock in tests)     | Warning in UI; ranking continues using Artificial Analysis only.                                                 |
-| **Empty `discoverSessionModels` list**                 | On Cursor: manual multi-select from `fallbackModels`. On VS Code+Copilot: sign in / open chat, or same fallback. |
+| Scenario                                               | Expected                                                                                                                            |
+| ------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------- |
+| **macOS Cursor** — recommend after chat is available   | Top 3 from session models; badges and rationale shown.                                                                              |
+| **Windows VS Code + Copilot** — same flow              | Same behavior; models match Copilot allowlist labels.                                                                               |
+| **Bad / missing AA API key** or network blocked for AA | Clear error (Artificial Analysis fetch failed); command exits without crash.                                                        |
+| **Arena down** (mirror unreachable; mock in tests)     | Warning in UI; ranking continues using Artificial Analysis only.                                                                    |
+| **Empty session model list**                           | Error message; command exits. On Cursor: set `taskModelAdvisor.cursor.apiKey` or run `agent login`. On VS Code: sign in to Copilot. |
 
-## Marketplace / release (deferred)
+### Marketplace (deferred)
 
 Do not publish until the owner asks. Remaining items typically include:
 
 - Real `publisher` (not `"local"`), `repository`, `license`, `keywords`, icon, `galleryBanner`
 - `LICENSE` file
 - Open VSX / VS Marketplace publish
-- Screenshots under `docs/images/` linked from the README
+- Replace the mock-up `docs/images/demo.gif` with a real screen recording (see `docs/images/README.md`)

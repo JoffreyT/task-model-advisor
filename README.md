@@ -1,67 +1,119 @@
-# Task Model Advisor
+<h1 align="center">🧭 Task Model Advisor</h1>
 
-Recommend the best **model**, **context window**, and **thinking effort** for your next task — based on live benchmarks, restricted to models you can actually use in this session.
+<p align="center">
+  <strong>Stop guessing which model to pick.</strong><br />
+  Get the best <b>model</b>, <b>context window</b> and <b>thinking effort</b> for your next task —<br />
+  ranked from live benchmarks, limited to the models <i>you can actually select</i> right now.
+</p>
 
-Works on **Visual Studio Code + GitHub Copilot** and **Cursor** from the same package.
+<p align="center">
+  <img alt="VS Code 1.90+" src="https://img.shields.io/badge/VS%20Code-1.90%2B-007ACC?logo=visualstudiocode&logoColor=white" />
+  <img alt="Cursor" src="https://img.shields.io/badge/Cursor-supported-000000?logo=cursor&logoColor=white" />
+  <img alt="GitHub Copilot" src="https://img.shields.io/badge/GitHub%20Copilot-supported-24292F?logo=githubcopilot&logoColor=white" />
+  <img alt="TypeScript" src="https://img.shields.io/badge/TypeScript-strict-3178C6?logo=typescript&logoColor=white" />
+</p>
+
+---
+
+## The problem
+
+Your editor offers 20+ models. Opus for a user story? A flash model for a spec? Max context for a 20-line script?
+You either burn money on a frontier model for trivial work, or save pennies and get a mediocre result.
+
+**Task Model Advisor does the homework for you, in one keystroke.**
+
+## What you get
+
+Pick a task, get your top 3:
+
+<p align="center">
+  <img src="docs/images/demo.gif" alt="Task Model Advisor: pick a task, get the top 3 models with context window, thinking effort and price" width="720" />
+</p>
+
+<p align="center"><em>Illustrative flow. Real results depend on your session models and live benchmark data.</em></p>
+
+Every recommendation comes with a **model**, a **context window tier** and a **thinking effort**, plus a transparent score so you can see _why_.
 
 ## Features
 
-- **Task-aware top 3** — pick a preset (spec, user story, test scenario, Python script) or describe a custom task
-- **Live benchmarks** — Artificial Analysis indices & pricing, plus Arena-style leaderboard data when available
-- **Session-only models** — never suggests a model you cannot select in the current editor
-- **Validate / Copy / Refresh** — apply when the host allows, or copy a structured config to the clipboard
+|                              |                                                                                                                                           |
+| ---------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| 🎯 **Task-aware**            | Presets for specs, user stories, test scenarios and Python scripts. Or describe anything with **Autre** — the task is detected locally.   |
+| 📊 **Live benchmarks**       | [Artificial Analysis](https://artificialanalysis.ai/) intelligence / coding indices and pricing, plus Arena leaderboard rankings.         |
+| 🔒 **Only what you can use** | Never suggests a model that is not in your current session. No more "great, but I don't have access to it".                               |
+| 💸 **Cost-aware**            | Frontier models don't win by default: price is part of the score, and a cheaper alternative is surfaced in the top 3 when it makes sense. |
+| 🧠 **Thinking & context**    | Suggests a thinking effort and context tier per task, bumped for reasoning models and for "big repo" style requests.                      |
+| ⚡ **One-key workflow**      | `Cmd+Option+R` / `Ctrl+Alt+R`, pick a task, pick a model, done.                                                                           |
+| 🛟 **Always a fallback**     | If the host refuses to switch models, your full config is on the clipboard as JSON. If Arena is down, ranking continues without it.       |
 
 ## Install
 
-**From the Marketplace** (when published)
-
-Search for **Task Model Advisor** in the Extensions view and install.
+**From the Marketplace** (when published) — search for **Task Model Advisor** in the Extensions view.
 
 **From a `.vsix`**
 
-1. Download or build `task-model-advisor-*.vsix`
+1. Download or build `task-model-advisor-*.vsix` (see [CONTRIBUTING.md](CONTRIBUTING.md)).
 2. Command Palette → **Extensions: Install from VSIX…**
-3. Select the file and reload if prompted
+3. Select the file and reload if prompted.
 
-## Setup
+## Quick start
 
-1. Get an [Artificial Analysis](https://artificialanalysis.ai/) Data API key.
-2. Open Settings and set:
+**1. Add your keys.** On first launch the extension adds both settings (empty) to your User `settings.json` — just fill them in.
 
-| Setting                                      | Required                  | Description                                                                                         |
-| -------------------------------------------- | ------------------------- | --------------------------------------------------------------------------------------------------- |
-| `taskModelAdvisor.artificialAnalysis.apiKey` | Yes                       | Artificial Analysis Data API key                                                                    |
-| `taskModelAdvisor.cursor.apiKey`             | Cursor only (recommended) | Lists Agent models when `vscode.lm` is empty ([Dashboard → API Keys](https://cursor.com/dashboard)) |
-| `taskModelAdvisor.fallbackModels`            | Optional                  | Manual model list if auto-discovery fails — use the same labels as in your Agent picker             |
+| Setting                                      | Required              | What for                                                                                               |
+| -------------------------------------------- | --------------------- | ------------------------------------------------------------------------------------------------------ |
+| `taskModelAdvisor.artificialAnalysis.apiKey` | **Yes**               | Benchmarks and pricing. Get a Data API key from [Artificial Analysis](https://artificialanalysis.ai/). |
+| `taskModelAdvisor.cursor.apiKey`             | Cursor only, optional | Lists your Agent models. Create one in the [Cursor dashboard](https://cursor.com/dashboard).           |
 
-Other settings (`applyStrategy`, aliases, ranking weights, etc.) have sensible defaults.
+> API keys live in your `settings.json` in plain text, like any other VS Code setting. Don't commit that file.
 
-## Usage
+**2. Run the command.**
 
-**Command:** `Task Model Advisor: Recommend a model for this task`  
-**Shortcut:** `Cmd+Option+R` (macOS) · `Ctrl+Alt+R` (Windows / Linux)
+- Command Palette → **Task Model Advisor: Recommend a model for this task**
+- or press `Cmd+Option+R` (macOS) · `Ctrl+Alt+R` (Windows / Linux)
 
-1. Choose a task preset, or **Autre** and describe what you need.
-2. Wait while benchmarks and session models load.
-3. Pick one of up to three recommendations → **Validate**, **Copy configuration**, or **Refresh benchmarks**.
+**3. Pick and apply.** Choose a task, choose one of the top 3, then:
 
-## Screenshots
+| Action                      | What it does                                                                                                   |
+| --------------------------- | -------------------------------------------------------------------------------------------------------------- |
+| **Valider** (Validate)      | Copies the config, then tries to apply it. Cursor: best-effort auto-switch. VS Code: tells you what to select. |
+| **Copier seulement** (Copy) | Copies the config as JSON to the clipboard. Nothing else.                                                      |
+| **Actualiser** (Refresh)    | Fetches benchmarks and session models again, then re-ranks.                                                    |
 
-_Screenshots coming soon — place images under `docs/images/` and link them here._
+> The interface labels are currently in French.
+
+## Works where you work
+
+| Host                         | Model discovery                                            | Validate                                                         |
+| ---------------------------- | ---------------------------------------------------------- | ---------------------------------------------------------------- |
+| **VS Code + GitHub Copilot** | Your Copilot chat models                                   | Copies config, shows what to select                              |
+| **Cursor**                   | Cursor CLI (`agent`), then the Cursor API if you set a key | Copies config + best-effort switch of model, effort and Max Mode |
+
+One package, no separate builds.
 
 ## Privacy
 
-- Network requests run **only** when you invoke the command or **Refresh benchmarks** — not in the background.
-- Custom task text (**Autre**) is used **locally** for profile selection. It is not sent to Artificial Analysis, Arena, or any extension-author server.
-- No telemetry of prompt content.
+- Network requests happen **only** when you run the command or hit **Refresh** — never in the background.
+- Your custom task text (**Autre**) is processed **locally**. It is never sent to Artificial Analysis, Arena or anyone else.
+- No telemetry. No prompt content leaves your machine.
+- Each key only goes to its own service: the Artificial Analysis key to Artificial Analysis, the Cursor key to the Cursor CLI / API.
 
-## Limitations
+## Troubleshooting
 
-- **Validate** is best-effort: on some hosts or Cursor builds, model/context/thinking may need a manual confirm. Clipboard JSON is always available as backup. Use `taskModelAdvisor.applyStrategy`: `clipboard-only` to skip auto-apply.
-- On **Cursor**, Agent models are not exposed via `vscode.lm`. Discovery falls back to the Cursor CLI / API, then to `fallbackModels`.
-- If the Arena leaderboard is unreachable, ranking continues with Artificial Analysis only (with a warning).
-- Context window tiers (`standard` / `medium` / `high`) are heuristic approximations of host UI labels.
+| You see                                              | Why / what to do                                                                                                                                              |
+| ---------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `Artificial Analysis fetch failed (missing_api_key)` | Set `taskModelAdvisor.artificialAnalysis.apiKey`.                                                                                                             |
+| `No chat models found in this session…`              | **Cursor:** set `taskModelAdvisor.cursor.apiKey`, or install the Cursor CLI and run `agent login`. **VS Code:** sign in to GitHub Copilot and open Chat once. |
+| `Arena leaderboard unavailable…`                     | Expected when the mirror is down. Ranking continues with Artificial Analysis only.                                                                            |
+| Validate didn't change the model                     | Cursor's switch is best-effort and can differ between builds. Your config is already on the clipboard — paste or apply it manually.                           |
 
-## Contributing
+## Good to know
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) for development setup, tests, ranking eval, and the release checklist.
+- **Context window tiers** (`standard` / `medium` / `high`) are heuristic approximations of each host's UI labels.
+- Rankings depend on third-party benchmark data. Treat them as a very good starting point, not an oracle.
+- Models that cannot be linked to a benchmark are shown last with a **weak** badge.
+
+## Go further
+
+- 🔬 **How the ranking works, data sources, host behavior:** [CONTRIBUTING.md → How it works](CONTRIBUTING.md#how-it-works)
+- 🛠 **Build, test, release:** [CONTRIBUTING.md](CONTRIBUTING.md)
