@@ -9,7 +9,7 @@
     "url": "https://github.com/JoffreyT/task-model-advisor.git"
   },
   "engines": {
-    "vscode": "^1.140.0"
+    "vscode": "^1.90.0"
   },
   "categories": [
     "Other"
