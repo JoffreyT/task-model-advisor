@@ -1,16 +1,17 @@
 import * as vscode from "vscode";
+import type { Messages } from "../i18n/types";
 import { classifyOther } from "../task/classify-other";
 import { TASK_PRESETS } from "../task/presets";
 import type { TaskProfileId } from "../types";
 
 type PresetQuickPickItem = vscode.QuickPickItem & { profileId: TaskProfileId };
 
-export async function pickTask(): Promise<
-  { profileId: TaskProfileId; customText?: string } | undefined
-> {
+export async function pickTask(
+  messages: Messages
+): Promise<{ profileId: TaskProfileId; customText?: string } | undefined> {
   const preset = await vscode.window.showQuickPick<PresetQuickPickItem>(
-    TASK_PRESETS.map((p) => ({ label: p.label, profileId: p.id })),
-    { placeHolder: "Quel type de tâche ?" }
+    TASK_PRESETS.map((p) => ({ label: messages.task.presets[p.id], profileId: p.id })),
+    { placeHolder: messages.task.placeholder }
   );
   if (!preset) return undefined;
 
@@ -19,8 +20,8 @@ export async function pickTask(): Promise<
   }
 
   const text = await vscode.window.showInputBox({
-    prompt: "Décrivez la tâche",
-    placeHolder: "Ex. refactorer le module auth",
+    prompt: messages.task.otherPrompt,
+    placeHolder: messages.task.otherPlaceholder,
   });
   if (text === undefined) return undefined;
 

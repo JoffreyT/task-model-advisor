@@ -46,4 +46,11 @@ describe("resolveConfig", () => {
     expect(c.artificialAnalysis.apiKey).toBe("aa");
     expect(c.cursor.apiKey).toBe("cursor");
   });
+
+  it("defaults language to en and accepts only fr", () => {
+    expect(resolveConfig({}).language).toBe("en");
+    expect(resolveConfig({ language: "fr" }).language).toBe("fr");
+    expect(resolveConfig({ language: "de" }).language).toBe("en");
+    expect(resolveConfig({ language: "" }).language).toBe("en");
+  });
 });

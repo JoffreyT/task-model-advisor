@@ -44,6 +44,15 @@
           "type": "string",
           "default": "",
           "description": "Cursor API key (Dashboard → API Keys). Used to list account models via `agent --list-models` / GET https://api.cursor.com/v1/models when vscode.lm is empty."
+        },
+        "taskModelAdvisor.language": {
+          "type": "string",
+          "enum": [
+            "en",
+            "fr"
+          ],
+          "default": "en",
+          "description": "Language for Task Model Advisor prompts, recommendations, and notifications."
         }
       }
     }

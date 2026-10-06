@@ -261,11 +261,11 @@
 
       const presets = (sel) =>
         [
-          "Écrire une spec",
-          "Écrire une user story",
-          "Écrire un scénario de test",
-          "Écrire un script Python pour automatiser une action",
-          "Autre",
+          "Write a spec",
+          "Write a user story",
+          "Write a test scenario",
+          "Write a Python script to automate a task",
+          "Other",
         ]
           .map(
             (l, i) =>
@@ -277,18 +277,18 @@
         const data = [
           [
             "Claude Opus 5.5 Medium",
-            "$8.00/1M · cher · high · think:medium",
-            "score 0.78 · fit 1.00 · arena 1.00 · cost 0.13 · Strong task fit and Arena rank. ~$8.00/1M tokens. [matched]",
+            "high context · medium thinking · $8.00/1M",
+            "Best fit for this task, and well ranked in comparisons.",
           ],
           [
             "Claude Opus 5 High",
-            "$8.00/1M · cher · high · think:medium",
-            "score 0.73 · fit 0.94 · arena 0.92 · cost 0.13 · Strong task fit and Arena rank. ~$8.00/1M tokens. [matched]",
+            "high context · medium thinking · $8.00/1M",
+            "Strong fit, and well ranked in comparisons.",
           ],
           [
             "Grok 4.6 Medium",
-            "$2.20/1M · bon marché · high · think:medium",
-            "score 0.44 · fit 0.44 · arena 0.47 · cost 0.38 · Strong task fit and Arena rank. ~$2.20/1M tokens. [matched]",
+            "high context · medium thinking · $2.20/1M",
+            "The cheapest. Weaker fit for this task, and well ranked in comparisons.",
           ],
         ];
         return data
@@ -301,9 +301,9 @@
 
       const actions = (sel) =>
         [
-          ["✓", "Valider (copier la config)"],
-          ["⧉", "Copier seulement"],
-          ["↻", "Actualiser les benchmarks"],
+          ["✓", "Apply (copy config)"],
+          ["⧉", "Copy only"],
+          ["↻", "Refresh benchmarks"],
         ]
           .map(
             ([i, l], k) =>
@@ -328,12 +328,12 @@
         // 3
         {
           cap: "Your top 3 — model, context, thinking effort, price",
-          html: picker("Choisissez une recommandation (coût = $/1M tokens AA)", recs(0)),
+          html: picker("Choose a recommendation", recs(0)),
         },
         // 4
         {
           cap: "Your top 3 — model, context, thinking effort, price",
-          html: picker("Choisissez une recommandation (coût = $/1M tokens AA)", recs(2)),
+          html: picker("Choose a recommendation", recs(2)),
         },
         // 5
         { cap: "Validate, copy, or refresh", html: picker("Action", actions(0)) },
@@ -343,7 +343,7 @@
           html: toast(
             "ⓘ",
             "info",
-            'Task Model Advisor: modèle "Grok 4.6 Medium" (~$2.20/1M), contexte "high", thinking "medium". Config copiée — applique-les manuellement dans le sélecteur Agent.',
+            'Task Model Advisor: model "Grok 4.6 Medium" (~$2.20/1M), context "high", thinking "medium". Config copied — set these manually in the Agent picker.',
             ""
           ),
         },

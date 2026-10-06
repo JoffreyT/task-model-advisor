@@ -1,6 +1,10 @@
 import * as vscode from "vscode";
+import type { Messages } from "../i18n/types";
 import type { Recommendation } from "../types";
-import { formatScoreBreakdown } from "./format-recommendation";
+import {
+  formatRecommendationDescription,
+  formatRecommendationDetail,
+} from "./format-recommendation";
 
 export type RecommendationAction = "validate" | "copy" | "refresh";
 
@@ -9,49 +13,39 @@ export type RecommendationChoice = {
   index: number;
 };
 
-export { formatScoreBreakdown } from "./format-recommendation";
-
 type RecQuickPickItem = vscode.QuickPickItem & { index: number };
 
 type ActionQuickPickItem = vscode.QuickPickItem & {
   actionId: RecommendationAction;
 };
 
-const ACTIONS: ActionQuickPickItem[] = [
-  { label: "$(check) Valider (copier la config)", actionId: "validate" },
-  { label: "$(copy) Copier seulement", actionId: "copy" },
-  { label: "$(refresh) Actualiser les benchmarks", actionId: "refresh" },
-];
-
-function formatCostLabel(rec: Recommendation): string {
-  if (rec.blendedPricePer1M != null && Number.isFinite(rec.blendedPricePer1M)) {
-    const tier =
-      rec.costTier === "low"
-        ? "bon marché"
-        : rec.costTier === "high"
-          ? "cher"
-          : rec.costTier === "medium"
-            ? "moyen"
-            : "";
-    const tierSuffix = tier ? ` · ${tier}` : "";
-    return `$${rec.blendedPricePer1M.toFixed(2)}/1M${tierSuffix}`;
-  }
-  return "prix inconnu";
-}
-
-function formatRecommendationItem(rec: Recommendation, index: number): RecQuickPickItem {
-  const badges = rec.badges.length > 0 ? rec.badges.join(", ") : "no-badge";
+function formatRecommendationItem(
+  rec: Recommendation,
+  index: number,
+  recs: Recommendation[],
+  messages: Messages
+): RecQuickPickItem {
   return {
     label: `$(sparkle) ${rec.sessionModel.name}`,
-    description: `${formatCostLabel(rec)} · ${rec.contextWindow} · think:${rec.thinkingEffort}`,
-    detail: `${formatScoreBreakdown(rec)} · ${rec.rationale} [${badges}]`,
+    description: formatRecommendationDescription(rec, messages),
+    detail: formatRecommendationDetail(rec, recs, messages),
     index,
   };
 }
 
+function buildActions(messages: Messages): ActionQuickPickItem[] {
+  return [
+    { label: `$(check) ${messages.actions.apply}`, actionId: "validate" },
+    { label: `$(copy) ${messages.actions.copy}`, actionId: "copy" },
+    { label: `$(refresh) ${messages.actions.refresh}`, actionId: "refresh" },
+  ];
+}
+
 export async function showRecommendations(
   recs: Recommendation[],
-  warnings: string[]
+  warnings: string[],
+  taskLabel: string,
+  messages: Messages
 ): Promise<RecommendationChoice | undefined> {
   if (warnings.length > 0) {
     // Show first warning only to avoid flooding; rest still in logs via console.
@@ -64,17 +58,18 @@ export async function showRecommendations(
   if (recs.length === 0) return undefined;
 
   const selected = await vscode.window.showQuickPick<RecQuickPickItem>(
-    recs.map((rec, index) => formatRecommendationItem(rec, index)),
+    recs.map((rec, index) => formatRecommendationItem(rec, index, recs, messages)),
     {
-      placeHolder: "Choisissez une recommandation (coût = $/1M tokens AA)",
+      title: taskLabel,
+      placeHolder: messages.recommendations.placeholder,
       matchOnDescription: true,
       matchOnDetail: true,
     }
   );
   if (!selected) return undefined;
 
-  const action = await vscode.window.showQuickPick<ActionQuickPickItem>(ACTIONS, {
-    placeHolder: "Action",
+  const action = await vscode.window.showQuickPick<ActionQuickPickItem>(buildActions(messages), {
+    placeHolder: messages.actions.placeholder,
   });
   if (!action) return undefined;
 

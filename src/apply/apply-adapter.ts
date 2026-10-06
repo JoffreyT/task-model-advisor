@@ -1,4 +1,5 @@
 import * as vscode from "vscode";
+import type { Messages } from "../i18n/types";
 import type { AdvisorConfig, Recommendation, TaskProfileId } from "../types";
 import {
   buildSwitchParams,
@@ -45,19 +46,17 @@ async function writeClipboardPayload(payload: ClipboardPayload): Promise<void> {
   await vscode.env.clipboard.writeText(text);
 }
 
-function formatPrice(rec: Recommendation): string {
-  if (rec.blendedPricePer1M != null && Number.isFinite(rec.blendedPricePer1M)) {
-    return `~$${rec.blendedPricePer1M.toFixed(2)}/1M`;
-  }
-  return "prix inconnu";
-}
-
 function isCursorHost(): boolean {
   return vscode.env.appName.toLowerCase().includes("cursor");
 }
 
-function manualApplyMessage(rec: Recommendation): string {
-  return `Task Model Advisor: modèle "${rec.sessionModel.name}" (${formatPrice(rec)}), contexte "${rec.contextWindow}", thinking "${rec.thinkingEffort}". Config copiée — applique-les manuellement dans le sélecteur Agent.`;
+function manualApplyMessage(rec: Recommendation, messages: Messages): string {
+  return messages.notifications.manualApply(
+    rec.sessionModel.name,
+    messages.notifications.toastPrice(rec.blendedPricePer1M),
+    rec.contextWindow,
+    rec.thinkingEffort
+  );
 }
 
 interface ApplyProbe {
@@ -123,7 +122,18 @@ async function runFirstProbe(
  * 2) secondary full modelConfig probe for maxMode
  * Do NOT gate on getCommands() — many Cursor actions are filtered from the list.
  */
-async function tryApplyCursorModel(rec: Recommendation): Promise<{
+function probeFailureDetail(errors: string[], messages: Messages): string {
+  if (errors.length > 0) {
+    const snippet = errors.slice(0, 3).join(" | ") + (errors.length > 3 ? "…" : "");
+    return messages.notifications.probesFailed(snippet);
+  }
+  return messages.notifications.noRunnableProbe;
+}
+
+async function tryApplyCursorModel(
+  rec: Recommendation,
+  messages: Messages
+): Promise<{
   ok: boolean;
   commandId?: string;
   kind?: string;
@@ -143,10 +153,7 @@ async function tryApplyCursorModel(rec: Recommendation): Promise<{
       thinkingApplied: false,
       maxModeApplied: false,
       maxModeTarget,
-      detail:
-        modelResult.errors.length > 0
-          ? `probes échouées (${modelResult.errors.slice(0, 3).join(" | ")}${modelResult.errors.length > 3 ? "…" : ""})`
-          : "aucune sonde exécutable",
+      detail: probeFailureDetail(modelResult.errors, messages),
     };
   }
 
@@ -169,27 +176,27 @@ async function tryApplyCursorModel(rec: Recommendation): Promise<{
 
 function successMessage(
   rec: Recommendation,
-  result: Awaited<ReturnType<typeof tryApplyCursorModel>>
+  result: Awaited<ReturnType<typeof tryApplyCursorModel>>,
+  messages: Messages
 ): string {
-  const via = result.kind === "new-agent" ? "nouvel Agent" : "modèle du composer courant";
-  const parts = [`modèle "${rec.sessionModel.name}" (${formatPrice(rec)})`];
-  if (result.thinkingApplied) {
-    parts.push(`thinking "${rec.thinkingEffort}" (effort)`);
-  } else {
-    parts.push(`thinking "${rec.thinkingEffort}"`);
-  }
-  if (result.maxModeApplied) {
-    parts.push(`Max Mode ${result.maxModeTarget ? "ON" : "OFF"} (contexte ${rec.contextWindow})`);
-  } else {
-    parts.push(`contexte "${rec.contextWindow}" à régler manuellement (Max Mode)`);
-  }
-  return `Task Model Advisor: ${via} → ${parts.join(" · ")} via ${result.commandId}. Config aussi copiée.`;
+  return messages.notifications.cursorSuccess({
+    kind: result.kind === "new-agent" ? "new-agent" : "composer",
+    name: rec.sessionModel.name,
+    price: messages.notifications.toastPrice(rec.blendedPricePer1M),
+    thinking: rec.thinkingEffort,
+    thinkingApplied: result.thinkingApplied,
+    maxModeApplied: result.maxModeApplied,
+    maxModeOn: result.maxModeTarget,
+    context: rec.contextWindow,
+    commandId: result.commandId ?? "",
+  });
 }
 
 export async function applyRecommendation(
   rec: Recommendation,
   strategy: AdvisorConfig["applyStrategy"],
   profileId: TaskProfileId,
+  messages: Messages,
   rank = 1
 ): Promise<{ applied: boolean; detail: string }> {
   const payload = toClipboardPayload(rec, profileId, rank);
@@ -198,15 +205,15 @@ export async function applyRecommendation(
     await writeClipboardPayload(payload);
 
     if (strategy === "clipboard-only") {
-      const detail = manualApplyMessage(rec);
+      const detail = manualApplyMessage(rec, messages);
       await vscode.window.showInformationMessage(detail);
       return { applied: false, detail };
     }
 
     if (isCursorHost()) {
-      const result = await tryApplyCursorModel(rec);
+      const result = await tryApplyCursorModel(rec, messages);
       if (result.ok) {
-        const detail = successMessage(rec, result);
+        const detail = successMessage(rec, result, messages);
         if (result.maxModeApplied) {
           await vscode.window.showInformationMessage(detail);
         } else {
@@ -215,17 +222,17 @@ export async function applyRecommendation(
         return { applied: true, detail };
       }
 
-      const detail = `${manualApplyMessage(rec)} (${result.detail})`;
+      const detail = `${manualApplyMessage(rec, messages)} (${result.detail})`;
       await vscode.window.showWarningMessage(detail);
       return { applied: false, detail };
     }
 
-    const detail = manualApplyMessage(rec);
+    const detail = manualApplyMessage(rec, messages);
     await vscode.window.showInformationMessage(detail);
     return { applied: false, detail };
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
-    const detail = `Task Model Advisor: échec validation (${message}).`;
+    const detail = messages.notifications.validationFailed(message);
     await vscode.window.showErrorMessage(detail);
     return { applied: false, detail };
   }
@@ -234,15 +241,19 @@ export async function applyRecommendation(
 export async function copyRecommendationToClipboard(
   rec: Recommendation,
   profileId: TaskProfileId,
+  messages: Messages,
   rank = 1
 ): Promise<void> {
   try {
     await writeClipboardPayload(toClipboardPayload(rec, profileId, rank));
     await vscode.window.showInformationMessage(
-      `Task Model Advisor: config copiée pour "${rec.sessionModel.name}" (${formatPrice(rec)}).`
+      messages.notifications.copySuccess(
+        rec.sessionModel.name,
+        messages.notifications.toastPrice(rec.blendedPricePer1M)
+      )
     );
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
-    await vscode.window.showErrorMessage(`Task Model Advisor: impossible de copier (${message}).`);
+    await vscode.window.showErrorMessage(messages.notifications.copyFailed(message));
   }
 }

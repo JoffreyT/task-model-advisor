@@ -12,8 +12,6 @@ describe("TASK_PRESETS", () => {
       "pythonScript",
       "other",
     ]);
-    expect(TASK_PRESETS[0].label).toBe("Écrire une spec");
-    expect(TASK_PRESETS[3].label).toContain("Python");
   });
 });
 

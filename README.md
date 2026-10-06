@@ -32,19 +32,19 @@ Pick a task, get your top 3:
 
 <p align="center"><em>Illustrative flow. Real results depend on your session models and live benchmark data.</em></p>
 
-Every recommendation comes with a **model**, a **context window tier** and a **thinking effort**, plus a transparent score so you can see _why_.
+Each recommendation shows the **model**, **context window tier**, and **thinking effort**, plus one sentence explaining _why_ it fits your task.
 
 ## Features
 
-|                              |                                                                                                                                           |
-| ---------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
-| 🎯 **Task-aware**            | Presets for specs, user stories, test scenarios and Python scripts. Or describe anything with **Autre** — the task is detected locally.   |
-| 📊 **Live benchmarks**       | [Artificial Analysis](https://artificialanalysis.ai/) intelligence / coding indices and pricing, plus Arena leaderboard rankings.         |
-| 🔒 **Only what you can use** | Never suggests a model that is not in your current session. No more "great, but I don't have access to it".                               |
-| 💸 **Cost-aware**            | Frontier models don't win by default: price is part of the score, and a cheaper alternative is surfaced in the top 3 when it makes sense. |
-| 🧠 **Thinking & context**    | Suggests a thinking effort and context tier per task, bumped for reasoning models and for "big repo" style requests.                      |
-| ⚡ **One-key workflow**      | `Cmd+Option+R` / `Ctrl+Alt+R`, pick a task, pick a model, done.                                                                           |
-| 🛟 **Always a fallback**     | If the host refuses to switch models, your full config is on the clipboard as JSON. If Arena is down, ranking continues without it.       |
+|                              |                                                                                                                                                             |
+| ---------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 🎯 **Task-aware**            | Presets for specs, user stories, test scenarios and Python scripts. Or describe anything with **Other** (_Autre_ in French) — the task is detected locally. |
+| 📊 **Live benchmarks**       | [Artificial Analysis](https://artificialanalysis.ai/) intelligence / coding indices and pricing, plus Arena leaderboard rankings.                           |
+| 🔒 **Only what you can use** | Never suggests a model that is not in your current session. No more "great, but I don't have access to it".                                                 |
+| 💸 **Cost-aware**            | Frontier models don't win by default: price is part of the score, and a cheaper alternative is surfaced in the top 3 when it makes sense.                   |
+| 🧠 **Thinking & context**    | Suggests a thinking effort and context tier per task, bumped for reasoning models and for "big repo" style requests.                                        |
+| ⚡ **One-key workflow**      | `Cmd+Option+R` / `Ctrl+Alt+R`, pick a task, pick a model, done.                                                                                             |
+| 🛟 **Always a fallback**     | If the host refuses to switch models, your full config is on the clipboard as JSON. If Arena is down, ranking continues without it.                         |
 
 ## Install
 
@@ -74,13 +74,13 @@ Every recommendation comes with a **model**, a **context window tier** and a **t
 
 **3. Pick and apply.** Choose a task, choose one of the top 3, then:
 
-| Action                      | What it does                                                                                                   |
-| --------------------------- | -------------------------------------------------------------------------------------------------------------- |
-| **Valider** (Validate)      | Copies the config, then tries to apply it. Cursor: best-effort auto-switch. VS Code: tells you what to select. |
-| **Copier seulement** (Copy) | Copies the config as JSON to the clipboard. Nothing else.                                                      |
-| **Actualiser** (Refresh)    | Fetches benchmarks and session models again, then re-ranks.                                                    |
+| Action                 | What it does                                                                                                   |
+| ---------------------- | -------------------------------------------------------------------------------------------------------------- |
+| **Apply**              | Copies the config, then tries to apply it. Cursor: best-effort auto-switch. VS Code: tells you what to select. |
+| **Copy only**          | Copies the config as JSON to the clipboard. Nothing else.                                                      |
+| **Refresh benchmarks** | Fetches benchmarks and session models again, then re-ranks.                                                    |
 
-> The interface labels are currently in French.
+Set `taskModelAdvisor.language` to `fr` for French prompts. The default is `en`.
 
 ## Works where you work
 
@@ -94,7 +94,7 @@ One package, no separate builds.
 ## Privacy
 
 - Network requests happen **only** when you run the command or hit **Refresh** — never in the background.
-- Your custom task text (**Autre**) is processed **locally**. It is never sent to Artificial Analysis, Arena or anyone else.
+- Your custom task text (**Other**) is processed **locally**. It is never sent to Artificial Analysis, Arena or anyone else.
 - No telemetry. No prompt content leaves your machine.
 - Each key only goes to its own service: the Artificial Analysis key to Artificial Analysis, the Cursor key to the Cursor CLI / API.
 
@@ -111,7 +111,7 @@ One package, no separate builds.
 
 - **Context window tiers** (`standard` / `medium` / `high`) are heuristic approximations of each host's UI labels.
 - Rankings depend on third-party benchmark data. Treat them as a very good starting point, not an oracle.
-- Models that cannot be linked to a benchmark are shown last with a **weak** badge.
+- A model that cannot be linked to a benchmark is shown with the sentence `No reliable benchmark.`
 
 ## Go further
 

@@ -72,7 +72,7 @@ Orchestrated by `runRecommendCommand` in `src/commands/recommend.ts`. **Refresh*
 | `src/constants.ts`                     | Every tunable that is **not** a user setting                 |
 | `src/commands/recommend.ts`            | The end-to-end flow                                          |
 | `src/task/presets.ts`                  | The 5 task entries shown first                               |
-| `src/task/classify-other.ts`           | Regex classifier for **Autre** free text                     |
+| `src/task/classify-other.ts`           | Regex classifier for **Other** free text                     |
 | `src/providers/artificial-analysis.ts` | AA Data API client and mapping to `BenchmarkModel`           |
 | `src/providers/arena.ts`               | Arena leaderboard client (wulong mirror)                     |
 | `src/host/model-discovery.ts`          | Session models: `vscode.lm`, then Cursor fallbacks           |
@@ -85,7 +85,7 @@ Orchestrated by `runRecommendCommand` in `src/commands/recommend.ts`. **Refresh*
 
 ### Settings vs constants
 
-Only the two API keys are user settings (`artificialAnalysis.apiKey`, `cursor.apiKey`). Everything else is a constant in `src/constants.ts`: Arena source and categories, ranking weights, model aliases, fuzzy threshold, apply strategy, fetch timeout, reasoning-model patterns.
+User settings: the two API keys (`artificialAnalysis.apiKey`, `cursor.apiKey`) and `taskModelAdvisor.language` (`en` or `fr`). UI strings live in `src/i18n/en.ts` and `src/i18n/fr.ts`. Everything else is a constant in `src/constants.ts`: Arena source and categories, ranking weights, model aliases, fuzzy threshold, apply strategy, fetch timeout, reasoning-model patterns.
 
 On activation, `seedUnsetUserSettings` writes any key that is unset in user, workspace and workspace-folder scope into **User** settings, using the `package.json` default. A test fails if `SETTING_KEYS` and `contributes.configuration.properties` diverge. Details: [seed spec](docs/superpowers/specs/2026-10-06-seed-default-settings-design.md).
 
@@ -241,7 +241,7 @@ Manual verification before release:
 
 | Scenario                                               | Expected                                                                                                                            |
 | ------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------- |
-| **macOS Cursor** — recommend after chat is available   | Top 3 from session models; badges and rationale shown.                                                                              |
+| **macOS Cursor** — recommend after chat is available   | Top 3 from session models; each row shows context, thinking, price, and one sentence.                                               |
 | **Windows VS Code + Copilot** — same flow              | Same behavior; models match Copilot allowlist labels.                                                                               |
 | **Bad / missing AA API key** or network blocked for AA | Clear error (Artificial Analysis fetch failed); command exits without crash.                                                        |
 | **Arena down** (mirror unreachable; mock in tests)     | Warning in UI; ranking continues using Artificial Analysis only.                                                                    |
@@ -254,4 +254,4 @@ Do not publish until the owner asks. Remaining items typically include:
 - Real `publisher` (not `"local"`), `repository`, `license`, `keywords`, icon, `galleryBanner`
 - `LICENSE` file
 - Open VSX / VS Marketplace publish
-- Replace the mock-up `docs/images/demo.gif` with a real screen recording (see `docs/images/README.md`)
+- Keep the mock-up `docs/images/demo.gif` in sync with UI labels via `bash docs/images/demo/build-gif.sh` (see `docs/images/README.md`)

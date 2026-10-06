@@ -32,5 +32,6 @@ export function resolveConfig(raw: Record<string, unknown>): AdvisorConfig {
     fetch: { timeoutMs: FETCH_TIMEOUT_MS },
     reasoningModelPatterns: [...REASONING_MODEL_PATTERNS],
     cursor: { apiKey: readApiKey(raw.cursor, "") },
+    language: raw.language === "fr" ? "fr" : "en",
   };
 }

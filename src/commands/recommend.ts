@@ -16,6 +16,7 @@ import type {
   SessionModel,
   TaskProfileId,
 } from "../types";
+import { messagesFor } from "../i18n";
 import { showRecommendations } from "../ui/recommendation-ui";
 import { pickTask } from "../ui/task-picker";
 
@@ -28,6 +29,7 @@ function loadAdvisorConfig(): AdvisorConfig {
     cursor: {
       apiKey: section.get<string>("cursor.apiKey"),
     },
+    language: section.get<string>("language"),
   });
 }
 
@@ -97,8 +99,9 @@ async function fetchBenchmarksAndSession(
 
 export async function runRecommendCommand(): Promise<void> {
   const config = loadAdvisorConfig();
+  const messages = messagesFor(config.language);
 
-  const task = await pickTask();
+  const task = await pickTask(messages);
   if (!task) return;
 
   const { profileId, customText } = task;
@@ -152,7 +155,8 @@ export async function runRecommendCommand(): Promise<void> {
       customText,
     });
 
-    const choice = await showRecommendations(recommendations, warnings);
+    const taskLabel = customText ? messages.task.presets.other : messages.task.presets[profileId];
+    const choice = await showRecommendations(recommendations, warnings, taskLabel, messages);
     if (!choice) return;
 
     const rec = recommendations[choice.index];
@@ -165,15 +169,15 @@ export async function runRecommendCommand(): Promise<void> {
     }
 
     if (choice.action === "copy") {
-      await copyRecommendationToClipboard(rec, profileId, rank);
+      await copyRecommendationToClipboard(rec, profileId, messages, rank);
       return;
     }
 
     try {
-      await applyRecommendation(rec, config.applyStrategy, profileId, rank);
+      await applyRecommendation(rec, config.applyStrategy, profileId, messages, rank);
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
-      void vscode.window.showErrorMessage(`Task Model Advisor: validation a échoué (${message}).`);
+      void vscode.window.showErrorMessage(messages.notifications.validationFailed(message));
     }
     return;
   }

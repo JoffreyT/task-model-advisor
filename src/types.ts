@@ -64,4 +64,5 @@ export interface AdvisorConfig {
   reasoningModelPatterns: string[];
   /** Optional Cursor user/service API key for `agent --list-models` / GET /v1/models. */
   cursor: { apiKey: string };
+  language: "en" | "fr";
 }
