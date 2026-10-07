@@ -242,7 +242,7 @@ Edit fixtures in `src/ranking/eval-fixtures.ts` to stress-test scenarios.
 
 Manual verification before release:
 
-- [ ] **1.** Run the command, pick each of the five task entries, and receive up to three recommendations from **session-available models only**.
+- [ ] **1.** Run the command, pick each task preset (8 + Other), and receive up to three recommendations from **session-available models only**.
 - [ ] **2.** With a valid AA API key and network, recommendations reflect AA pricing/indices and Arena data when the mirror responds.
 - [ ] **3.** With Arena unavailable, recommendations still work with a non-blocking warning.
 - [ ] **4.** **Validate** applies or copies the full configuration without throwing.
@@ -263,7 +263,7 @@ Manual verification before release:
 
 Do not publish until the owner asks. Remaining items typically include:
 
-- `publisher` (`jft63`) + `LICENSE` (MIT) set; still needed: `keywords`, icon, `galleryBanner`
+- `publisher` (`jft63`), `LICENSE` (MIT), `keywords` / `categories`, icon + `galleryBanner`, README `docs/images/demo.gif` set; next: publish
 - `LICENSE` file
 - Open VSX / VS Marketplace publish
 - Keep the mock-up `docs/images/demo.gif` in sync with UI labels via `bash docs/images/demo/build-gif.sh` (see `docs/images/README.md`)

@@ -112,11 +112,15 @@
         padding: 2px 0 6px;
       }
       .item {
-        padding: 5px 12px;
+        padding: 3px 12px;
         display: flex;
         flex-direction: column;
-        gap: 2px;
-        min-height: 26px;
+        gap: 1px;
+        min-height: 22px;
+      }
+      .item.compact {
+        min-height: 20px;
+        padding: 2px 12px;
       }
       .item.sel {
         background: #04395e;
@@ -259,13 +263,18 @@
         </div>`;
       }
 
+      // Labels must match src/i18n/en.ts → task.presets (order = TASK_PRESETS).
       const presets = (sel) =>
         [
-          "Write a spec",
+          "Write / edit code",
+          "Debug / explain a bug",
+          "Refactor / restructure",
+          "Review code / find issues",
+          "Write a spec / technical doc",
           "Write a user story",
-          "Write a test scenario",
-          "Write a Python script to automate a task",
-          "Other",
+          "Write tests / scenarios",
+          "Quick task / cheaper model",
+          "Other…",
         ]
           .map(
             (l, i) =>
@@ -273,6 +282,7 @@
           )
           .join("");
 
+      // description/detail phrasing must match formatRecommendationDescription/Detail + en.ts
       const recs = (sel) => {
         const data = [
           [
@@ -288,7 +298,7 @@
           [
             "Grok 4.6 Medium",
             "high context · medium thinking · $2.20/1M",
-            "The cheapest. Weaker fit for this task, and well ranked in comparisons.",
+            "The cheapest. Weaker fit for this task.",
           ],
         ];
         return data
@@ -318,8 +328,11 @@
       const frames = [
         // 0
         { cap: "Press ⌘⌥R — or open the Command Palette", html: palette("Task Mod", true) },
-        // 1
-        { cap: "Pick the task you are about to run", html: picker("", presets(0)) },
+        // 1 — select "Write a spec / technical doc" (matches editor backdrop)
+        {
+          cap: "Pick the task you are about to run",
+          html: picker("What kind of task?", presets(4)),
+        },
         // 2
         {
           cap: "Live benchmarks + the models you can actually select",
@@ -336,7 +349,7 @@
           html: picker("Choose a recommendation", recs(2)),
         },
         // 5
-        { cap: "Validate, copy, or refresh", html: picker("Action", actions(0)) },
+        { cap: "Apply, copy, or refresh", html: picker("Action", actions(0)) },
         // 6
         {
           cap: "Done — config applied or copied to your clipboard",

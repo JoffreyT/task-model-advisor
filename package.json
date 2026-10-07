@@ -13,8 +13,29 @@
     "vscode": "^1.128.0"
   },
   "categories": [
+    "Machine Learning",
     "Other"
   ],
+  "keywords": [
+    "ai",
+    "llm",
+    "model",
+    "cursor",
+    "copilot",
+    "benchmark",
+    "artificial-analysis",
+    "arena",
+    "recommendation",
+    "thinking",
+    "context-window",
+    "cost",
+    "task"
+  ],
+  "icon": "media/icon.png",
+  "galleryBanner": {
+    "color": "#357AB7",
+    "theme": "dark"
+  },
   "activationEvents": [
     "onStartupFinished"
   ],
