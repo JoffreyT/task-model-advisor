@@ -251,7 +251,7 @@ Manual verification before release:
 
 Do not publish until the owner asks. Remaining items typically include:
 
-- `publisher` set (`jft63`); still needed: `license`, `keywords`, icon, `galleryBanner`
+- `publisher` (`jft63`) + `LICENSE` (MIT) set; still needed: `keywords`, icon, `galleryBanner`
 - `LICENSE` file
 - Open VSX / VS Marketplace publish
 - Keep the mock-up `docs/images/demo.gif` in sync with UI labels via `bash docs/images/demo/build-gif.sh` (see `docs/images/README.md`)
