@@ -3,7 +3,7 @@
   "displayName": "Task Model Advisor",
   "description": "Recommend the best available LLM (model, context, thinking) for a task using live benchmarks.",
   "version": "0.1.0",
-  "publisher": "local",
+  "publisher": "jft63",
   "repository": {
     "type": "git",
     "url": "https://github.com/JoffreyT/task-model-advisor.git"
