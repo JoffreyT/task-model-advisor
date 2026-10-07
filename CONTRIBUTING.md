@@ -60,28 +60,28 @@ npm run package   # → task-model-advisor-<version>.vsix
               └─ session models       (vscode.lm → Cursor CLI → Cursor API)
 ```
 
-Orchestrated by `runRecommendCommand` in `src/commands/recommend.ts`. **Refresh** loops back to the fetch step with the same task.
+Orchestrated by `runRecommendCommand` in `src/commands/recommend.ts`. **Refresh** loops back to the fetch step with the same task. `pickTask` returns a **preset label** id (`TaskPresetId`); ranking uses the resolved **engine** (`RankingEngineId`) from `engineForPreset` or `classifyOther`.
 
 ### Module map
 
-| Path                                   | Role                                                         |
-| -------------------------------------- | ------------------------------------------------------------ |
-| `src/extension.ts`                     | `activate`: registers the command, then seeds settings       |
-| `src/seed-settings.ts`                 | Writes unset `taskModelAdvisor.*` keys to User settings      |
-| `src/config.ts`                        | Builds `AdvisorConfig` from the two API keys + constants     |
-| `src/constants.ts`                     | Every tunable that is **not** a user setting                 |
-| `src/commands/recommend.ts`            | The end-to-end flow                                          |
-| `src/task/presets.ts`                  | The 5 task entries shown first                               |
-| `src/task/classify-other.ts`           | Regex classifier for **Other** free text                     |
-| `src/providers/artificial-analysis.ts` | AA Data API client and mapping to `BenchmarkModel`           |
-| `src/providers/arena.ts`               | Arena leaderboard client (wulong mirror)                     |
-| `src/host/model-discovery.ts`          | Session models: `vscode.lm`, then Cursor fallbacks           |
-| `src/host/cursor-model-discovery.ts`   | `agent --list-models` and `GET /v1/models`                   |
-| `src/matching/`                        | Name normalization, similarity, session ↔ benchmark matching |
-| `src/ranking/task-ranker.ts`           | Scoring, context/thinking heuristics, top-3 selection        |
-| `src/ranking/eval-*.ts`                | Synthetic catalog and matrix for tuning                      |
-| `src/apply/`                           | Clipboard payload and Cursor model switching                 |
-| `src/ui/`                              | QuickPick UI and score formatting                            |
+| Path                                   | Role                                                           |
+| -------------------------------------- | -------------------------------------------------------------- |
+| `src/extension.ts`                     | `activate`: registers the command, then seeds settings         |
+| `src/seed-settings.ts`                 | Writes unset `taskModelAdvisor.*` keys to User settings        |
+| `src/config.ts`                        | Builds `AdvisorConfig` from the two API keys + constants       |
+| `src/constants.ts`                     | Every tunable that is **not** a user setting                   |
+| `src/commands/recommend.ts`            | The end-to-end flow                                            |
+| `src/task/presets.ts`                  | QuickPick **labels** (8 tasks + Autre) and preset → engine map |
+| `src/task/classify-other.ts`           | Autre free text → **ranking engine** (regex, no LLM)           |
+| `src/providers/artificial-analysis.ts` | AA Data API client and mapping to `BenchmarkModel`             |
+| `src/providers/arena.ts`               | Arena leaderboard client (wulong mirror)                       |
+| `src/host/model-discovery.ts`          | Session models: `vscode.lm`, then Cursor fallbacks             |
+| `src/host/cursor-model-discovery.ts`   | `agent --list-models` and `GET /v1/models`                     |
+| `src/matching/`                        | Name normalization, similarity, session ↔ benchmark matching   |
+| `src/ranking/task-ranker.ts`           | **Engine** scoring, context/thinking heuristics, top-3         |
+| `src/ranking/eval-*.ts`                | Synthetic catalog and matrix for tuning                        |
+| `src/apply/`                           | Clipboard payload and Cursor model switching                   |
+| `src/ui/`                              | QuickPick UI and score formatting                              |
 
 ### Settings vs constants
 
@@ -126,11 +126,11 @@ Each session model is linked to a benchmark model:
 
 **Task fit** (min-max normalized across matched models):
 
-| Profile                              | Raw signal                                                                |
-| ------------------------------------ | ------------------------------------------------------------------------- |
-| `pythonScript`                       | coding index × 0.7 + LiveCodeBench × 0.3 (falls back to whichever exists) |
-| `spec`                               | mean of intelligence index and GDPval / writing eval when present         |
-| `testScenario`, `userStory`, `other` | intelligence index                                                        |
+| Engine                           | Raw signal                                                                |
+| -------------------------------- | ------------------------------------------------------------------------- |
+| `coding`                         | coding index × 0.7 + LiveCodeBench × 0.3 (falls back to whichever exists) |
+| `writing`                        | mean of intelligence index and GDPval / writing eval when present         |
+| `reasoning`, `cheap`, `balanced` | intelligence index                                                        |
 
 **Arena**: if any entry has an Elo score, Elo is min-max normalized; otherwise `1 - (rank - 1) / n`. No entry → 0.
 
@@ -140,14 +140,14 @@ Each session model is linked to a benchmark model:
 cost = 1 - clamp( (ln(price) - ln(0.10)) / (ln(15) - ln(0.10)) )     unknown price → 0.5
 ```
 
-**Weights**: base `0.45 / 0.25 / 0.30` (`RANKING_WEIGHTS`), tilted per profile in `resolveProfileWeights`:
+**Weights**: base `0.45 / 0.25 / 0.30` (`RANKING_WEIGHTS`), tilted per engine in `resolveEngineWeights`:
 
-| Profile        | taskFit | arena | cost |
-| -------------- | ------- | ----- | ---- |
-| `spec`         | 0.50    | 0.25  | 0.25 |
-| `userStory`    | 0.40    | 0.20  | 0.40 |
-| `pythonScript` | 0.45    | 0.20  | 0.35 |
-| other profiles | 0.45    | 0.25  | 0.30 |
+| Engine                  | taskFit | arena | cost |
+| ----------------------- | ------- | ----- | ---- |
+| `writing`               | 0.50    | 0.25  | 0.25 |
+| `coding`                | 0.45    | 0.20  | 0.35 |
+| `cheap`                 | 0.35    | 0.20  | 0.45 |
+| `reasoning`, `balanced` | 0.45    | 0.25  | 0.30 |
 
 Cost weight tuning rule of thumb: too high → cheap flash models dominate; too low → expensive Opus everywhere.
 
@@ -155,8 +155,8 @@ Cost weight tuning rule of thumb: too high → cheap flash models dominate; too 
 
 - **Weak** models are appended after all matched ones, with a zeroed breakdown.
 - `diversifyTop3` keeps the #1 and tries to include one cheaper matched alternative (cost score ≥ 0.35 and price ≤ 55% of the leader's, or a clearly better cost score when a price is unknown). The final three are ordered by score.
-- **Context window**: profile default (`spec` high, `pythonScript` standard, others medium), capped by the model's real context size (< 48k standard, < 100k medium, else high), bumped one tier when custom text mentions codebase / repo / monorepo / multi-fichier / large / gros.
-- **Thinking effort**: profile default (`userStory` low, others medium), bumped one level for reasoning models (`REASONING_MODEL_PATTERNS`: `o1`, `o3`, `deepseek-r1`, `extended`).
+- **Context window**: engine default (`writing` high, `coding` standard, `cheap` standard, `reasoning` and `balanced` medium), capped by the model's real context size (< 48k standard, < 100k medium, else high), bumped one tier when custom text mentions codebase / repo / monorepo / multi-fichier / large / gros.
+- **Thinking effort**: engine default (`writing` medium, `coding` medium, `cheap` low, `reasoning` and `balanced` medium), bumped one level for reasoning models (`REASONING_MODEL_PATTERNS`: `o1`, `o3`, `deepseek-r1`, `extended`).
 - The UI row shows `score · fit · arena · cost`.
 
 ### Applying a recommendation
@@ -170,12 +170,15 @@ Every **Validate** and **Copy** writes this to the clipboard first:
   "contextWindow": "high",
   "thinkingEffort": "medium",
   "task": "spec",
+  "engine": "writing",
   "rank": 1,
   "scoreBreakdown": { "taskFit": 1, "arena": 1, "cost": 0.13 },
   "blendedPricePer1M": 8,
   "costTier": "high"
 }
 ```
+
+**Breaking change (pre-Marketplace):** clipboard `task` values are **preset** ids (`spec`, `debug`, `other`, …). Old profile ids such as `pythonScript` and `testScenario` are no longer written. Scripts should read `engine` for ranking semantics and `task` for what the user picked.
 
 - **VS Code:** nothing else to apply; an info message tells the user what to select.
 - **Cursor (experimental):** `tryApplyCursorModel` probes undocumented commands in order, without checking `getCommands()` (many Cursor actions are filtered from that list):
@@ -189,7 +192,7 @@ Every **Validate** and **Copy** writes this to the clipboard first:
 
 ### Ranking eval matrix
 
-Synthetic catalog (Cursor-like session models + AA/Arena fixtures). Runs matching + ranking for every task profile and prints the top 3 with score breakdowns:
+Synthetic catalog (Cursor-like session models + AA/Arena fixtures). Runs matching + ranking for every **ranking engine** (plus extra `balanced` rows with custom text) and prints the top 3 with score breakdowns:
 
 ```bash
 npm run eval:ranking
@@ -202,23 +205,32 @@ Edit fixtures in `src/ranking/eval-fixtures.ts` to stress-test scenarios.
 | I want to…                 | Edit                                                                                                  |
 | -------------------------- | ----------------------------------------------------------------------------------------------------- |
 | Change base weights        | `RANKING_WEIGHTS` in `src/constants.ts`, then re-run `npm run eval:ranking`                           |
-| Change per-task tilt       | `resolveProfileWeights` in `src/ranking/task-ranker.ts`                                               |
+| Change per-engine tilt     | `resolveEngineWeights` in `src/ranking/task-ranker.ts`                                                |
 | Map a host model to a slug | `MODEL_ALIASES` in `src/constants.ts`                                                                 |
 | Treat a model as reasoning | `REASONING_MODEL_PATTERNS` in `src/constants.ts`                                                      |
 | Add a new user setting     | `contributes.configuration` in `package.json`, `SETTING_KEYS`, `resolveConfig` (a test checks parity) |
 
-### Adding a task profile
+### Adding a QuickPick preset
 
-1. Add the id to `TaskProfileId` in `src/types.ts`.
-2. Add the preset label in `src/task/presets.ts` and keywords in `src/task/classify-other.ts`.
-3. Add its Arena category in `ARENA_CATEGORIES` (`src/constants.ts`).
-4. Define its raw signal in `rawTaskFit`, its defaults in `profileDefaults`, and its tilt in `resolveProfileWeights` (`src/ranking/task-ranker.ts`).
-5. Add tests and an eval-matrix case.
+1. Add the id to `TaskPresetId` in `src/types.ts`.
+2. Add a row to `TASK_PRESETS` and map it in `PRESET_ENGINE` (`src/task/presets.ts`).
+3. Add en/fr labels in `src/i18n/en.ts` and `src/i18n/fr.ts`.
+4. Do **not** add Arena or ranker branches unless the preset needs a **new** engine (map it to an existing engine instead).
+5. Add tests; eval matrix only needs a change if you add a new engine.
+
+### Adding a ranking engine
+
+1. Add the id to `RankingEngineId` in `src/types.ts`.
+2. Add its Arena category in `ARENA_CATEGORIES` (`src/constants.ts`).
+3. Extend `rawTaskFit`, `engineDefaults`, and `resolveEngineWeights` in `src/ranking/task-ranker.ts`.
+4. Add the engine to `EVAL_ENGINES` in `src/ranking/eval-matrix.ts` and update eval-matrix tests.
+5. Update the ranking tables in this file and run `npm run eval:ranking`.
 
 ## Design docs
 
 `docs/superpowers/` holds the design history, newest first:
 
+- Public task presets: [spec](docs/superpowers/specs/2026-10-07-public-task-presets-design.md) · [plan](docs/superpowers/plans/2026-10-07-public-task-presets.md)
 - Seed settings: [spec](docs/superpowers/specs/2026-10-06-seed-default-settings-design.md) · [plan](docs/superpowers/plans/2026-10-06-seed-default-settings.md)
 - Original: [spec](docs/superpowers/specs/2026-03-22-task-model-advisor-design.md) · [plan](docs/superpowers/plans/2026-10-05-task-model-advisor.md)
 

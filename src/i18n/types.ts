@@ -1,4 +1,4 @@
-import type { TaskProfileId } from "../types";
+import type { TaskPresetId } from "../types";
 
 export type ContextTier = "standard" | "medium" | "high";
 export type ThinkingTier = "off" | "low" | "medium" | "high";
@@ -34,7 +34,7 @@ export interface SentenceFragments {
 export interface Messages {
   task: {
     placeholder: string;
-    presets: Record<TaskProfileId, string>;
+    presets: Record<TaskPresetId, string>;
     otherPrompt: string;
     otherPlaceholder: string;
   };

@@ -13,8 +13,8 @@ import type {
   AdvisorConfig,
   ArenaEntry,
   BenchmarkModel,
+  RankingEngineId,
   SessionModel,
-  TaskProfileId,
 } from "../types";
 import { messagesFor } from "../i18n";
 import { showRecommendations } from "../ui/recommendation-ui";
@@ -42,10 +42,10 @@ interface FetchBundle {
 
 async function fetchBenchmarksAndSession(
   config: AdvisorConfig,
-  profileId: TaskProfileId
+  engineId: RankingEngineId
 ): Promise<FetchBundle> {
   const warnings: string[] = [];
-  const arenaCategory = config.arena.categories[profileId];
+  const arenaCategory = config.arena.categories[engineId];
 
   const aaPromise = fetchArtificialAnalysisModels({
     apiKey: config.artificialAnalysis.apiKey,
@@ -104,7 +104,7 @@ export async function runRecommendCommand(): Promise<void> {
   const task = await pickTask(messages);
   if (!task) return;
 
-  const { profileId, customText } = task;
+  const { presetId, engineId, customText } = task;
 
   while (true) {
     let bundle: FetchBundle;
@@ -116,7 +116,7 @@ export async function runRecommendCommand(): Promise<void> {
           title: "Task Model Advisor",
           cancellable: false,
         },
-        async () => fetchBenchmarksAndSession(config, profileId)
+        async () => fetchBenchmarksAndSession(config, engineId)
       );
     } catch (err) {
       if (err instanceof ArtificialAnalysisError) {
@@ -149,13 +149,13 @@ export async function runRecommendCommand(): Promise<void> {
     const recommendations = rankRecommendations({
       matched,
       arena,
-      profileId,
+      engineId,
       weights: config.ranking.weights,
       reasoningModelPatterns: config.reasoningModelPatterns,
       customText,
     });
 
-    const taskLabel = customText ? messages.task.presets.other : messages.task.presets[profileId];
+    const taskLabel = customText ? messages.task.presets.other : messages.task.presets[presetId];
     const choice = await showRecommendations(recommendations, warnings, taskLabel, messages);
     if (!choice) return;
 
@@ -169,12 +169,12 @@ export async function runRecommendCommand(): Promise<void> {
     }
 
     if (choice.action === "copy") {
-      await copyRecommendationToClipboard(rec, profileId, messages, rank);
+      await copyRecommendationToClipboard(rec, presetId, engineId, messages, rank);
       return;
     }
 
     try {
-      await applyRecommendation(rec, config.applyStrategy, profileId, messages, rank);
+      await applyRecommendation(rec, config.applyStrategy, presetId, engineId, messages, rank);
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       void vscode.window.showErrorMessage(messages.notifications.validationFailed(message));

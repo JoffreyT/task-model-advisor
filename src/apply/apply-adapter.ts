@@ -1,6 +1,6 @@
 import * as vscode from "vscode";
 import type { Messages } from "../i18n/types";
-import type { AdvisorConfig, Recommendation, TaskProfileId } from "../types";
+import type { AdvisorConfig, RankingEngineId, Recommendation, TaskPresetId } from "../types";
 import {
   buildSwitchParams,
   candidateModelIds,
@@ -16,7 +16,8 @@ export interface ClipboardPayload {
   modelId: string;
   contextWindow: Recommendation["contextWindow"];
   thinkingEffort: Recommendation["thinkingEffort"];
-  task: TaskProfileId;
+  task: TaskPresetId;
+  engine: RankingEngineId;
   rank: number;
   scoreBreakdown: Recommendation["breakdown"];
   blendedPricePer1M: number | null;
@@ -25,7 +26,8 @@ export interface ClipboardPayload {
 
 export function toClipboardPayload(
   rec: Recommendation,
-  profileId: TaskProfileId,
+  presetId: TaskPresetId,
+  engineId: RankingEngineId,
   rank = 1
 ): ClipboardPayload {
   return {
@@ -33,7 +35,8 @@ export function toClipboardPayload(
     modelId: rec.sessionModel.id,
     contextWindow: rec.contextWindow,
     thinkingEffort: rec.thinkingEffort,
-    task: profileId,
+    task: presetId,
+    engine: engineId,
     rank,
     scoreBreakdown: { ...rec.breakdown },
     blendedPricePer1M: rec.blendedPricePer1M,
@@ -195,11 +198,12 @@ function successMessage(
 export async function applyRecommendation(
   rec: Recommendation,
   strategy: AdvisorConfig["applyStrategy"],
-  profileId: TaskProfileId,
+  presetId: TaskPresetId,
+  engineId: RankingEngineId,
   messages: Messages,
   rank = 1
 ): Promise<{ applied: boolean; detail: string }> {
-  const payload = toClipboardPayload(rec, profileId, rank);
+  const payload = toClipboardPayload(rec, presetId, engineId, rank);
 
   try {
     await writeClipboardPayload(payload);
@@ -240,12 +244,13 @@ export async function applyRecommendation(
 
 export async function copyRecommendationToClipboard(
   rec: Recommendation,
-  profileId: TaskProfileId,
+  presetId: TaskPresetId,
+  engineId: RankingEngineId,
   messages: Messages,
   rank = 1
 ): Promise<void> {
   try {
-    await writeClipboardPayload(toClipboardPayload(rec, profileId, rank));
+    await writeClipboardPayload(toClipboardPayload(rec, presetId, engineId, rank));
     await vscode.window.showInformationMessage(
       messages.notifications.copySuccess(
         rec.sessionModel.name,

@@ -1,4 +1,16 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
+
+vi.mock("vscode", () => ({
+  env: { clipboard: { writeText: async () => {} }, appName: "Cursor" },
+  window: {
+    showInformationMessage: async () => {},
+    showWarningMessage: async () => {},
+    showErrorMessage: async () => {},
+  },
+  commands: { executeCommand: async () => {} },
+}));
+
+import { toClipboardPayload } from "../apply/apply-adapter";
 import {
   buildSwitchParams,
   candidateModelIds,
@@ -90,5 +102,15 @@ describe("thinking / context mapping", () => {
       id: "effort",
       value: "low",
     });
+  });
+});
+
+describe("toClipboardPayload", () => {
+  it("writes preset id as task and ranking engine as engine", () => {
+    const payload = toClipboardPayload(fakeRec(), "writeCode", "coding", 2);
+    expect(payload.task).toBe("writeCode");
+    expect(payload.engine).toBe("coding");
+    expect(payload.rank).toBe(2);
+    expect(payload.modelId).toBe("grok-4.6");
   });
 });

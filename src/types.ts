@@ -1,4 +1,15 @@
-export type TaskProfileId = "spec" | "userStory" | "testScenario" | "pythonScript" | "other";
+export type TaskPresetId =
+  | "writeCode"
+  | "debug"
+  | "refactor"
+  | "codeReview"
+  | "spec"
+  | "userStory"
+  | "tests"
+  | "cheap"
+  | "other";
+
+export type RankingEngineId = "coding" | "reasoning" | "writing" | "cheap" | "balanced";
 
 export interface SessionModel {
   id: string;
@@ -54,7 +65,7 @@ export interface AdvisorConfig {
   artificialAnalysis: { apiKey: string };
   arena: {
     source: ArenaSource;
-    categories: Record<TaskProfileId, string>;
+    categories: Record<RankingEngineId, string>;
   };
   ranking: { weights: RankingWeights };
   modelAliases: Record<string, string>;

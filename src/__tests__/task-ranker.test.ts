@@ -1,9 +1,42 @@
 import { describe, it, expect } from "vitest";
-import { absoluteCostScore, rankRecommendations } from "../ranking/task-ranker";
+import {
+  absoluteCostScore,
+  rankRecommendations,
+  resolveEngineWeights,
+} from "../ranking/task-ranker";
 import { matchModels } from "../matching/model-matcher";
 
+describe("resolveEngineWeights", () => {
+  const base = { taskFit: 0.45, arena: 0.25, cost: 0.3 };
+  it("tilts writing toward taskFit", () => {
+    expect(resolveEngineWeights("writing", base)).toEqual({
+      taskFit: 0.5,
+      arena: 0.25,
+      cost: 0.25,
+    });
+  });
+  it("tilts coding toward cost", () => {
+    expect(resolveEngineWeights("coding", base)).toEqual({
+      taskFit: 0.45,
+      arena: 0.2,
+      cost: 0.35,
+    });
+  });
+  it("tilts cheap strongly toward cost", () => {
+    expect(resolveEngineWeights("cheap", base)).toEqual({
+      taskFit: 0.35,
+      arena: 0.2,
+      cost: 0.45,
+    });
+  });
+  it("leaves reasoning and balanced at base", () => {
+    expect(resolveEngineWeights("reasoning", base)).toEqual(base);
+    expect(resolveEngineWeights("balanced", base)).toEqual(base);
+  });
+});
+
 describe("rankRecommendations", () => {
-  it("prefers high coding index for pythonScript among matched models", () => {
+  it("prefers high coding index for coding engine among matched models", () => {
     const matched = [
       {
         session: { id: "a", name: "Cheap Coder" },
@@ -35,7 +68,7 @@ describe("rankRecommendations", () => {
     const top = rankRecommendations({
       matched,
       arena: [{ model: "Cheap Coder", rank: 1, score: 1200 }],
-      profileId: "pythonScript",
+      engineId: "coding",
       weights: { taskFit: 0.45, arena: 0.25, cost: 0.3 },
       reasoningModelPatterns: ["o1", "o3"],
     });
@@ -73,7 +106,7 @@ describe("rankRecommendations", () => {
     const top = rankRecommendations({
       matched,
       arena: [],
-      profileId: "spec",
+      engineId: "writing",
       weights: { taskFit: 0.45, arena: 0.25, cost: 0.3 },
       reasoningModelPatterns: [],
     });
@@ -99,14 +132,14 @@ describe("rankRecommendations", () => {
     const top = rankRecommendations({
       matched,
       arena: [],
-      profileId: "userStory",
+      engineId: "cheap",
       weights: { taskFit: 1, arena: 0, cost: 0 },
       reasoningModelPatterns: ["o3"],
     });
     expect(top[0].thinkingEffort).not.toBe("low");
   });
 
-  it("prefers higher intelligence for spec profile", () => {
+  it("prefers higher intelligence for writing engine", () => {
     const matched = [
       {
         session: { id: "smart", name: "Smart" },
@@ -136,7 +169,7 @@ describe("rankRecommendations", () => {
     const top = rankRecommendations({
       matched,
       arena: [],
-      profileId: "spec",
+      engineId: "writing",
       weights: { taskFit: 1, arena: 0, cost: 0 },
       reasoningModelPatterns: [],
     });
@@ -176,7 +209,7 @@ describe("rankRecommendations", () => {
         { model: "Model With Elo", rank: 2, score: 1000 },
         { model: "Model No Elo", rank: 1, score: null },
       ],
-      profileId: "testScenario",
+      engineId: "reasoning",
       weights: { taskFit: 0, arena: 1, cost: 0 },
       reasoningModelPatterns: [],
     });
@@ -220,7 +253,7 @@ describe("rankRecommendations", () => {
         { model: "Model A", rank: 2, score: 1000 },
         { model: "Model B", rank: 1, score: 1300 },
       ],
-      profileId: "testScenario",
+      engineId: "reasoning",
       weights: { taskFit: 0, arena: 1, cost: 0 },
       reasoningModelPatterns: [],
     });
@@ -257,7 +290,7 @@ describe("rankRecommendations", () => {
     const top = rankRecommendations({
       matched,
       arena: [],
-      profileId: "userStory",
+      engineId: "cheap",
       weights: { taskFit: 0, arena: 0, cost: 1 },
       reasoningModelPatterns: [],
     });
@@ -280,7 +313,7 @@ describe("rankRecommendations", () => {
     const top = rankRecommendations({
       matched,
       arena: [],
-      profileId: "other",
+      engineId: "balanced",
       weights: { taskFit: 1, arena: 0, cost: 0 },
       reasoningModelPatterns: [],
     });
@@ -312,7 +345,7 @@ describe("rankRecommendations", () => {
     const top = rankRecommendations({
       matched,
       arena: [],
-      profileId: "spec",
+      engineId: "writing",
       weights: { taskFit: 1, arena: 0, cost: 0 },
       reasoningModelPatterns: [],
     });
@@ -338,7 +371,7 @@ describe("rankRecommendations", () => {
     const top = rankRecommendations({
       matched,
       arena: [],
-      profileId: "pythonScript",
+      engineId: "coding",
       weights: { taskFit: 1, arena: 0, cost: 0 },
       reasoningModelPatterns: [],
       customText: "refactor a large monorepo codebase",
@@ -346,7 +379,7 @@ describe("rankRecommendations", () => {
     expect(top[0].contextWindow).toBe("medium");
   });
 
-  it("sets profile default context and thinking without reasoning bump", () => {
+  it("sets engine default context and thinking without reasoning bump", () => {
     const matched = [
       {
         session: { id: "plain", name: "Plain" },
@@ -361,24 +394,50 @@ describe("rankRecommendations", () => {
         badges: ["matched" as const],
       },
     ];
-    const specTop = rankRecommendations({
+    const writingTop = rankRecommendations({
       matched,
       arena: [],
-      profileId: "spec",
+      engineId: "writing",
       weights: { taskFit: 1, arena: 0, cost: 0 },
       reasoningModelPatterns: [],
     });
-    expect(specTop[0].contextWindow).toBe("high");
-    expect(specTop[0].thinkingEffort).toBe("medium");
+    expect(writingTop[0].contextWindow).toBe("high");
+    expect(writingTop[0].thinkingEffort).toBe("medium");
 
-    const scriptTop = rankRecommendations({
+    const codingTop = rankRecommendations({
       matched,
       arena: [],
-      profileId: "pythonScript",
+      engineId: "coding",
       weights: { taskFit: 1, arena: 0, cost: 0 },
       reasoningModelPatterns: [],
     });
-    expect(scriptTop[0].contextWindow).toBe("standard");
+    expect(codingTop[0].contextWindow).toBe("standard");
+  });
+
+  it("cheap engine defaults to standard context and low thinking", () => {
+    const matched = [
+      {
+        session: { id: "plain", name: "Plain" },
+        benchmark: {
+          slug: "plain",
+          name: "Plain",
+          intelligence: 70,
+          blendedPricePer1M: 2,
+          evaluations: {},
+        },
+        score: 1,
+        badges: ["matched" as const],
+      },
+    ];
+    const top = rankRecommendations({
+      matched,
+      arena: [],
+      engineId: "cheap",
+      weights: { taskFit: 1, arena: 0, cost: 0 },
+      reasoningModelPatterns: [],
+    });
+    expect(top[0].contextWindow).toBe("standard");
+    expect(top[0].thinkingEffort).toBe("low");
   });
 
   it("weak entries rank after matched and sort by name", () => {
@@ -411,7 +470,7 @@ describe("rankRecommendations", () => {
     const top = rankRecommendations({
       matched,
       arena: [],
-      profileId: "spec",
+      engineId: "writing",
       weights: { taskFit: 1, arena: 0, cost: 0 },
       reasoningModelPatterns: [],
     });
@@ -438,7 +497,7 @@ describe("rankRecommendations", () => {
     const top = rankRecommendations({
       matched,
       arena: [{ model: "gpt-4o", rank: 1, score: 1100 }],
-      profileId: "spec",
+      engineId: "writing",
       weights: { taskFit: 0, arena: 1, cost: 0 },
       reasoningModelPatterns: [],
     });
@@ -478,7 +537,7 @@ describe("rankRecommendations", () => {
         { model: "Flash Cheap", rank: 2, score: 1100 },
         { model: "Opus Strong", rank: 1, score: 1250 },
       ],
-      profileId: "spec",
+      engineId: "writing",
       weights: { taskFit: 0.45, arena: 0.25, cost: 0.3 },
       reasoningModelPatterns: [],
     });
@@ -551,7 +610,7 @@ describe("matcher + ranker integration", () => {
     const top = rankRecommendations({
       matched,
       arena: [],
-      profileId: "userStory",
+      engineId: "balanced",
       weights: { taskFit: 0.3, arena: 0, cost: 0.7 },
       reasoningModelPatterns: [],
     });
@@ -559,13 +618,13 @@ describe("matcher + ranker integration", () => {
     expect(top[0].badges).toContain("matched");
   });
 
-  it("ranks deepseek first for pythonScript after fuzzy match", () => {
+  it("ranks deepseek first for coding engine after fuzzy match", () => {
     const session = [{ id: "x", name: "DeepSeek Coder" }];
     const matched = matchModels(session, benches, {}, 0.72);
     const top = rankRecommendations({
       matched,
       arena: [{ model: "DeepSeek Coder", rank: 1, score: 1250 }],
-      profileId: "pythonScript",
+      engineId: "coding",
       weights: { taskFit: 0.6, arena: 0.2, cost: 0.2 },
       reasoningModelPatterns: [],
     });
@@ -583,7 +642,7 @@ describe("matcher + ranker integration", () => {
     const top = rankRecommendations({
       matched,
       arena: [],
-      profileId: "spec",
+      engineId: "writing",
       weights: { taskFit: 0.45, arena: 0.25, cost: 0.3 },
       reasoningModelPatterns: [],
     });

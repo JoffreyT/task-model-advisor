@@ -3,10 +3,10 @@ import { normalizeModelKey } from "../matching/normalize";
 import type {
   ArenaEntry,
   BenchmarkModel,
+  RankingEngineId,
   RankingWeights,
   Recommendation,
   SessionModel,
-  TaskProfileId,
 } from "../types";
 
 const WEAK_SCORE_OFFSET = 0.001;
@@ -26,7 +26,7 @@ type ContextWindow = Recommendation["contextWindow"];
 export interface RankRecommendationsInput {
   matched: MatchedModel[];
   arena: ArenaEntry[];
-  profileId: TaskProfileId;
+  engineId: RankingEngineId;
   weights: RankingWeights;
   reasoningModelPatterns: string[];
   customText?: string;
@@ -54,24 +54,24 @@ function scaleEval(value: number): number {
   return value <= 1 ? value * 100 : value;
 }
 
-function rawTaskFit(benchmark: BenchmarkModel, profileId: TaskProfileId): number {
-  switch (profileId) {
-    case "pythonScript": {
+function rawTaskFit(benchmark: BenchmarkModel, engineId: RankingEngineId): number {
+  switch (engineId) {
+    case "coding": {
       const coding = benchmark.coding ?? 0;
       const lcbRaw = evalValue(benchmark, ["livecodebench", "LiveCodeBench"]);
       const lcb = lcbRaw != null ? scaleEval(lcbRaw) : coding;
       if (coding > 0 && lcbRaw != null) return coding * 0.7 + lcb * 0.3;
       return coding > 0 ? coding : lcb;
     }
-    case "spec": {
+    case "writing": {
       const intel = benchmark.intelligence ?? 0;
       const writing = evalValue(benchmark, ["gdpval", "writing", "gdpval-writing"]);
       if (writing != null) return (intel + scaleEval(writing)) / 2;
       return intel;
     }
-    case "userStory":
-    case "testScenario":
-    case "other":
+    case "reasoning":
+    case "cheap":
+    case "balanced":
     default:
       return benchmark.intelligence ?? 0;
   }
@@ -147,11 +147,11 @@ function bumpContextTier(tier: ContextWindow): ContextWindow {
 }
 
 function resolveContextWindow(
-  profileId: TaskProfileId,
+  engineId: RankingEngineId,
   benchmark: BenchmarkModel | null,
   customText?: string
 ): ContextWindow {
-  let ctx = profileDefaults(profileId).contextWindow;
+  let ctx = engineDefaults(engineId).contextWindow;
   if (benchmark?.contextWindowTokens != null) {
     ctx = lowerContextTier(ctx, tokensToContextTier(benchmark.contextWindowTokens));
   }
@@ -175,20 +175,19 @@ function normalizeArenaScores(rawArena: Array<number | null>, useElo: boolean): 
   return minMax(present);
 }
 
-function profileDefaults(profileId: TaskProfileId): {
+function engineDefaults(engineId: RankingEngineId): {
   contextWindow: ContextWindow;
   thinkingEffort: ThinkingEffort;
 } {
-  switch (profileId) {
-    case "spec":
+  switch (engineId) {
+    case "writing":
       return { contextWindow: "high", thinkingEffort: "medium" };
-    case "userStory":
-      return { contextWindow: "medium", thinkingEffort: "low" };
-    case "testScenario":
-      return { contextWindow: "medium", thinkingEffort: "medium" };
-    case "pythonScript":
+    case "coding":
       return { contextWindow: "standard", thinkingEffort: "medium" };
-    case "other":
+    case "cheap":
+      return { contextWindow: "standard", thinkingEffort: "low" };
+    case "reasoning":
+    case "balanced":
     default:
       return { contextWindow: "medium", thinkingEffort: "medium" };
   }
@@ -251,36 +250,31 @@ export function absoluteCostScore(pricePer1M: number): number {
   return 1 - clamped;
 }
 
-/**
- * Profile-specific tilt on top of configured weights.
- * Spec stays quality-first; userStory / pythonScript lean more on cost so Opus
- * does not monopolize every task type.
- */
-export function resolveProfileWeights(
-  profileId: TaskProfileId,
+export function resolveEngineWeights(
+  engineId: RankingEngineId,
   base: RankingWeights
 ): RankingWeights {
-  switch (profileId) {
-    case "spec":
+  switch (engineId) {
+    case "writing":
       return {
         taskFit: base.taskFit + 0.05,
         arena: base.arena,
         cost: Math.max(0.15, base.cost - 0.05),
       };
-    case "userStory":
-      return {
-        taskFit: Math.max(0.3, base.taskFit - 0.05),
-        arena: Math.max(0.15, base.arena - 0.05),
-        cost: base.cost + 0.1,
-      };
-    case "pythonScript":
+    case "coding":
       return {
         taskFit: base.taskFit,
         arena: Math.max(0.15, base.arena - 0.05),
         cost: base.cost + 0.05,
       };
-    case "testScenario":
-    case "other":
+    case "cheap":
+      return {
+        taskFit: Math.max(0.25, base.taskFit - 0.1),
+        arena: Math.max(0.15, base.arena - 0.05),
+        cost: Number((base.cost + 0.15).toFixed(2)),
+      };
+    case "reasoning":
+    case "balanced":
     default:
       return { ...base };
   }
@@ -290,17 +284,17 @@ export function rankRecommendations(input: RankRecommendationsInput): Recommenda
   const {
     matched,
     arena,
-    profileId,
+    engineId,
     weights: baseWeights,
     reasoningModelPatterns,
     customText,
   } = input;
-  const weights = resolveProfileWeights(profileId, baseWeights);
+  const weights = resolveEngineWeights(engineId, baseWeights);
   const arenaByKey = buildArenaLookup(arena);
   const useElo = arena.some((e) => e.score != null);
 
   const withBenchmark = matched.filter((m) => !isWeakMatch(m) && m.benchmark);
-  const rawTaskFits = withBenchmark.map((m) => rawTaskFit(m.benchmark!, profileId));
+  const rawTaskFits = withBenchmark.map((m) => rawTaskFit(m.benchmark!, engineId));
   const normTaskFits = minMax(rawTaskFits);
 
   const arenaEligible = withBenchmark.map((m) =>
@@ -325,7 +319,7 @@ export function rankRecommendations(input: RankRecommendationsInput): Recommenda
         : null;
     const breakdown = { taskFit, arena: arenaNorm, cost };
     const score = weights.taskFit * taskFit + weights.arena * arenaNorm + weights.cost * cost;
-    const defaults = profileDefaults(profileId);
+    const defaults = engineDefaults(engineId);
     let thinkingEffort = defaults.thinkingEffort;
     if (matchesReasoningPattern(m.session, reasoningModelPatterns)) {
       thinkingEffort = bumpThinking(thinkingEffort);
@@ -334,7 +328,7 @@ export function rankRecommendations(input: RankRecommendationsInput): Recommenda
       sessionModel: m.session,
       score: Number.isFinite(score) ? score : 0,
       breakdown,
-      contextWindow: resolveContextWindow(profileId, m.benchmark!, customText),
+      contextWindow: resolveContextWindow(engineId, m.benchmark!, customText),
       thinkingEffort,
       rationale: buildRationale(weights, breakdown, blendedPricePer1M),
       badges: m.badges.filter(
@@ -356,7 +350,7 @@ export function rankRecommendations(input: RankRecommendationsInput): Recommenda
     .sort((a, b) => a.session.name.localeCompare(b.session.name));
 
   const scoredWeak: Recommendation[] = weakModels.map((m, i) => {
-    const defaults = profileDefaults(profileId);
+    const defaults = engineDefaults(engineId);
     let thinkingEffort = defaults.thinkingEffort;
     if (matchesReasoningPattern(m.session, reasoningModelPatterns)) {
       thinkingEffort = bumpThinking(thinkingEffort);
@@ -367,7 +361,7 @@ export function rankRecommendations(input: RankRecommendationsInput): Recommenda
       sessionModel: m.session,
       score,
       breakdown,
-      contextWindow: resolveContextWindow(profileId, m.benchmark, customText),
+      contextWindow: resolveContextWindow(engineId, m.benchmark, customText),
       thinkingEffort,
       rationale: "Weak match; no reliable benchmark link.",
       badges: m.badges.filter(

@@ -36,15 +36,15 @@ Each recommendation shows the **model**, **context window tier**, and **thinking
 
 ## Features
 
-|                              |                                                                                                                                                             |
-| ---------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 🎯 **Task-aware**            | Presets for specs, user stories, test scenarios and Python scripts. Or describe anything with **Other** (_Autre_ in French) — the task is detected locally. |
-| 📊 **Live benchmarks**       | [Artificial Analysis](https://artificialanalysis.ai/) intelligence / coding indices and pricing, plus Arena leaderboard rankings.                           |
-| 🔒 **Only what you can use** | Never suggests a model that is not in your current session. No more "great, but I don't have access to it".                                                 |
-| 💸 **Cost-aware**            | Frontier models don't win by default: price is part of the score, and a cheaper alternative is surfaced in the top 3 when it makes sense.                   |
-| 🧠 **Thinking & context**    | Suggests a thinking effort and context tier per task, bumped for reasoning models and for "big repo" style requests.                                        |
-| ⚡ **One-key workflow**      | `Cmd+Option+R` / `Ctrl+Alt+R`, pick a task, pick a model, done.                                                                                             |
-| 🛟 **Always a fallback**     | If the host refuses to switch models, your full config is on the clipboard as JSON. If Arena is down, ranking continues without it.                         |
+|                              |                                                                                                                                                                                                                                                                                                          |
+| ---------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 🎯 **Task-aware**            | Eight presets — write/edit code, debug, refactor, code review, specs, user stories, tests, and quick/cheap tasks — plus **Other** (_Autre_ in French) for free-form tasks detected locally. Ranking uses shared engines (coding, reasoning, writing, cheap, balanced), not a separate formula per label. |
+| 📊 **Live benchmarks**       | [Artificial Analysis](https://artificialanalysis.ai/) intelligence / coding indices and pricing, plus Arena leaderboard rankings.                                                                                                                                                                        |
+| 🔒 **Only what you can use** | Never suggests a model that is not in your current session. No more "great, but I don't have access to it".                                                                                                                                                                                              |
+| 💸 **Cost-aware**            | Frontier models don't win by default: price is part of the score, and a cheaper alternative is surfaced in the top 3 when it makes sense.                                                                                                                                                                |
+| 🧠 **Thinking & context**    | Suggests a thinking effort and context tier per task, bumped for reasoning models and for "big repo" style requests.                                                                                                                                                                                     |
+| ⚡ **One-key workflow**      | `Cmd+Option+R` / `Ctrl+Alt+R`, pick a task, pick a model, done.                                                                                                                                                                                                                                          |
+| 🛟 **Always a fallback**     | If the host refuses to switch models, your full config is on the clipboard as JSON. If Arena is down, ranking continues without it.                                                                                                                                                                      |
 
 ## Install
 

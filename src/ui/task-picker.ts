@@ -1,22 +1,22 @@
 import * as vscode from "vscode";
 import type { Messages } from "../i18n/types";
 import { classifyOther } from "../task/classify-other";
-import { TASK_PRESETS } from "../task/presets";
-import type { TaskProfileId } from "../types";
+import { engineForPreset, TASK_PRESETS } from "../task/presets";
+import type { RankingEngineId, TaskPresetId } from "../types";
 
-type PresetQuickPickItem = vscode.QuickPickItem & { profileId: TaskProfileId };
+type PresetQuickPickItem = vscode.QuickPickItem & { presetId: TaskPresetId };
 
 export async function pickTask(
   messages: Messages
-): Promise<{ profileId: TaskProfileId; customText?: string } | undefined> {
+): Promise<{ presetId: TaskPresetId; engineId: RankingEngineId; customText?: string } | undefined> {
   const preset = await vscode.window.showQuickPick<PresetQuickPickItem>(
-    TASK_PRESETS.map((p) => ({ label: messages.task.presets[p.id], profileId: p.id })),
+    TASK_PRESETS.map((p) => ({ label: messages.task.presets[p.id], presetId: p.id })),
     { placeHolder: messages.task.placeholder }
   );
   if (!preset) return undefined;
 
-  if (preset.profileId !== "other") {
-    return { profileId: preset.profileId };
+  if (preset.presetId !== "other") {
+    return { presetId: preset.presetId, engineId: engineForPreset(preset.presetId) };
   }
 
   const text = await vscode.window.showInputBox({
@@ -28,5 +28,5 @@ export async function pickTask(
   const trimmed = text.trim();
   if (!trimmed) return undefined;
 
-  return { profileId: classifyOther(trimmed), customText: trimmed };
+  return { presetId: "other", engineId: classifyOther(trimmed), customText: trimmed };
 }

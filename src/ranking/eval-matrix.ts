@@ -1,20 +1,20 @@
 import { FUZZY_THRESHOLD, RANKING_WEIGHTS, REASONING_MODEL_PATTERNS } from "../constants";
 import { matchModels } from "../matching/model-matcher";
-import type { AdvisorConfig, Recommendation, TaskProfileId } from "../types";
+import type { AdvisorConfig, RankingEngineId, Recommendation } from "../types";
 import { formatScoreBreakdown } from "../ui/format-recommendation";
 import { EVAL_ALIASES, EVAL_ARENA, EVAL_BENCHMARKS, EVAL_SESSION_MODELS } from "./eval-fixtures";
 import { rankRecommendations } from "./task-ranker";
 
-export const EVAL_TASK_PROFILES: TaskProfileId[] = [
-  "spec",
-  "userStory",
-  "testScenario",
-  "pythonScript",
-  "other",
+export const EVAL_ENGINES: RankingEngineId[] = [
+  "coding",
+  "reasoning",
+  "writing",
+  "cheap",
+  "balanced",
 ];
 
-export interface EvalProfileResult {
-  profileId: TaskProfileId;
+export interface EvalEngineResult {
+  engineId: RankingEngineId;
   customText?: string;
   recommendations: Recommendation[];
   matchedCount: number;
@@ -26,11 +26,11 @@ export interface EvalMatrixOptions {
   fuzzyThreshold?: number;
   aliases?: Record<string, string>;
   reasoningModelPatterns?: string[];
-  /** Extra scenarios for profile `other` (free-text classifier input is separate). */
+  /** Extra scenarios for engine `balanced` (free-text classifier input is separate). */
   otherCustomTexts?: string[];
 }
 
-export function runEvalMatrix(options: EvalMatrixOptions = {}): EvalProfileResult[] {
+export function runEvalMatrix(options: EvalMatrixOptions = {}): EvalEngineResult[] {
   const weights = options.weights ?? RANKING_WEIGHTS;
   const threshold = options.fuzzyThreshold ?? FUZZY_THRESHOLD;
   const aliases = options.aliases ?? EVAL_ALIASES;
@@ -40,43 +40,41 @@ export function runEvalMatrix(options: EvalMatrixOptions = {}): EvalProfileResul
   const matchedCount = matched.filter((m) => m.badges.includes("matched")).length;
   const weakCount = matched.filter((m) => m.badges.includes("weak")).length;
 
-  const results: EvalProfileResult[] = [];
+  const results: EvalEngineResult[] = [];
 
-  for (const profileId of EVAL_TASK_PROFILES) {
-    if (profileId === "other") {
-      const texts = options.otherCustomTexts ?? [
-        undefined,
-        "gros monorepo multi-fichier à refactorer",
-      ];
-      for (const customText of texts) {
-        results.push({
-          profileId,
-          customText,
-          matchedCount,
-          weakCount,
-          recommendations: rankRecommendations({
-            matched,
-            arena: EVAL_ARENA,
-            profileId,
-            weights,
-            reasoningModelPatterns: patterns,
-            customText,
-          }),
-        });
-      }
-      continue;
-    }
-
+  for (const engineId of EVAL_ENGINES) {
     results.push({
-      profileId,
+      engineId,
       matchedCount,
       weakCount,
       recommendations: rankRecommendations({
         matched,
         arena: EVAL_ARENA,
-        profileId,
+        engineId,
         weights,
         reasoningModelPatterns: patterns,
+      }),
+    });
+  }
+
+  const customTexts = options.otherCustomTexts ?? [
+    undefined,
+    "gros monorepo multi-fichier à refactorer",
+  ];
+  for (const customText of customTexts) {
+    if (customText === undefined) continue;
+    results.push({
+      engineId: "balanced",
+      customText,
+      matchedCount,
+      weakCount,
+      recommendations: rankRecommendations({
+        matched,
+        arena: EVAL_ARENA,
+        engineId: "balanced",
+        weights,
+        reasoningModelPatterns: patterns,
+        customText,
       }),
     });
   }
@@ -84,7 +82,7 @@ export function runEvalMatrix(options: EvalMatrixOptions = {}): EvalProfileResul
   return results;
 }
 
-export function formatEvalReport(results: EvalProfileResult[]): string {
+export function formatEvalReport(results: EvalEngineResult[]): string {
   const lines: string[] = [];
   lines.push("Task Model Advisor — ranking eval matrix");
   lines.push("=".repeat(72));
@@ -98,9 +96,9 @@ export function formatEvalReport(results: EvalProfileResult[]): string {
 
   for (const row of results) {
     const title =
-      row.profileId === "other" && row.customText
-        ? `other — custom: "${row.customText}"`
-        : row.profileId;
+      row.engineId === "balanced" && row.customText
+        ? `balanced — custom: "${row.customText}"`
+        : row.engineId;
     lines.push(`## ${title}`);
     if (row.recommendations.length === 0) {
       lines.push("  (aucune recommandation)");
