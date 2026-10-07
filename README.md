@@ -27,7 +27,7 @@ You either burn money on a frontier model for trivial work, or save pennies and 
 Pick a task, get your top 3:
 
 <p align="center">
-  <img src="docs/images/demo.gif" alt="Task Model Advisor: pick a task, get the top 3 models with context window, thinking effort and price" width="720" />
+  <img src="media/demo.gif" alt="Task Model Advisor: pick a task, get the top 3 models with context window, thinking effort and price" width="720" />
 </p>
 
 <p align="center"><em>Illustrative flow. Real results depend on your session models and live benchmark data.</em></p>

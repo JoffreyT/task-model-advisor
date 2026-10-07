@@ -90,7 +90,8 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "eval:ranking": "vitest run ranking-eval --reporter=verbose",
-    "package": "vsce package --skip-license",
+    "package": "vsce package",
+    "publish": "vsce publish",
     "prepare": "husky"
   },
   "lint-staged": {

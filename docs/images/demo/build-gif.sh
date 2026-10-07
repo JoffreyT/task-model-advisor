@@ -5,6 +5,7 @@ set -euo pipefail
 
 HERE="$(cd "$(dirname "$0")" && pwd)"
 OUT="$HERE/../demo.gif"
+MEDIA_OUT="$(cd "$HERE/../../.." && pwd)/media/demo.gif"
 CHROME="${CHROME:-/Applications/Google Chrome.app/Contents/MacOS/Google Chrome}"
 TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"' EXIT
@@ -27,4 +28,5 @@ ffmpeg -y -loglevel error -f concat -safe 0 -i "$TMP/list.txt" \
   -vf "fps=15,split[a][b];[a]palettegen=max_colors=96[p];[b][p]paletteuse=dither=bayer:bayer_scale=4" \
   -loop 0 "$OUT"
 
-echo "Wrote $OUT ($(du -h "$OUT" | cut -f1))"
+cp "$OUT" "$MEDIA_OUT"
+echo "Wrote $OUT and $MEDIA_OUT ($(du -h "$OUT" | cut -f1))"

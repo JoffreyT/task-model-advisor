@@ -1,6 +1,5 @@
 # Images
 
-- `demo.gif` — animated walkthrough shown at the top of the [README](../../README.md). It is a **mock-up** rendered from `demo/demo.html` (labels from `src/i18n/en.ts`, row format from `format-recommendation.ts`), not a screen recording.
-- Rebuild after UI copy changes: `bash docs/images/demo/build-gif.sh` (macOS, needs Google Chrome and `ffmpeg`).
-
-Marketplace README images are resolved from the repository URL in `package.json`, so `demo.gif` must be pushed to the default branch before publishing.
+- Source mock: `demo/demo.html` (labels from `src/i18n/en.ts`, row format from `format-recommendation.ts`).
+- Rebuild: `bash docs/images/demo/build-gif.sh` then copy/update `media/demo.gif` (packaged into the `.vsix` / Marketplace README).
+- The README links to `media/demo.gif` so the GIF ships with the extension even if the GitHub repo is private.
