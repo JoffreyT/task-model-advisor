@@ -75,6 +75,13 @@
           ],
           "default": "en",
           "description": "Language for Task Model Advisor prompts, recommendations, and notifications."
+        },
+        "taskModelAdvisor.recommendationCount": {
+          "type": "number",
+          "minimum": 3,
+          "maximum": 5,
+          "default": 3,
+          "description": "Number of model recommendations to show (3–5)."
         }
       }
     }

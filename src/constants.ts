@@ -25,3 +25,7 @@ export const APPLY_STRATEGY: ApplyStrategy = "auto-then-manual";
 export const FETCH_TIMEOUT_MS = 8000;
 
 export const REASONING_MODEL_PATTERNS = ["o1", "o3", "deepseek-r1", "extended"];
+
+export const RECOMMENDATION_COUNT_MIN = 3;
+export const RECOMMENDATION_COUNT_MAX = 5;
+export const RECOMMENDATION_COUNT_DEFAULT = 3;

@@ -5,7 +5,12 @@ export interface SettingInspection {
   defaultValue?: unknown;
 }
 
-export const SETTING_KEYS = ["artificialAnalysis.apiKey", "cursor.apiKey", "language"] as const;
+export const SETTING_KEYS = [
+  "artificialAnalysis.apiKey",
+  "cursor.apiKey",
+  "language",
+  "recommendationCount",
+] as const;
 
 export function shouldSeedSetting(inspected: SettingInspection | undefined): boolean {
   if (!inspected) {

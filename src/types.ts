@@ -76,4 +76,6 @@ export interface AdvisorConfig {
   /** Optional Cursor user/service API key for `agent --list-models` / GET /v1/models. */
   cursor: { apiKey: string };
   language: "en" | "fr";
+  /** How many recommendations to show. Integer from 3 to 5. */
+  recommendationCount: number;
 }

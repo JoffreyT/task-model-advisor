@@ -1,10 +1,12 @@
-import { describe, it, expect } from "vitest";
+import { describe, expect, it } from "vitest";
+import { matchModels, type MatchedModel } from "../matching/model-matcher";
 import {
   absoluteCostScore,
   rankRecommendations,
   resolveEngineWeights,
+  selectRecommendations,
 } from "../ranking/task-ranker";
-import { matchModels } from "../matching/model-matcher";
+import type { BenchmarkModel, Recommendation } from "../types";
 
 describe("resolveEngineWeights", () => {
   const base = { taskFit: 0.45, arena: 0.25, cost: 0.3 };
@@ -37,7 +39,7 @@ describe("resolveEngineWeights", () => {
 
 describe("rankRecommendations", () => {
   it("prefers high coding index for coding engine among matched models", () => {
-    const matched = [
+    const matched: MatchedModel[] = [
       {
         session: { id: "a", name: "Cheap Coder" },
         benchmark: {
@@ -49,7 +51,7 @@ describe("rankRecommendations", () => {
           evaluations: { livecodebench: 0.8 },
         },
         score: 1,
-        badges: ["matched" as const],
+        badges: ["matched"],
       },
       {
         session: { id: "b", name: "Smart Writer" },
@@ -62,7 +64,7 @@ describe("rankRecommendations", () => {
           evaluations: {},
         },
         score: 1,
-        badges: ["matched" as const],
+        badges: ["matched"],
       },
     ];
     const top = rankRecommendations({
@@ -547,6 +549,33 @@ describe("rankRecommendations", () => {
     expect(top[1].breakdown.cost).toBeGreaterThan(0.5);
     expect(top[1].breakdown.cost - top[0].breakdown.cost).toBeLessThan(0.85);
   });
+
+  it("extends the same top 3 when limit is above 3", () => {
+    const matched = [50, 40, 30, 20, 10].map((intelligence) => ({
+      session: { id: `m${intelligence}`, name: `m${intelligence}` },
+      benchmark: {
+        slug: `m${intelligence}`,
+        name: `m${intelligence}`,
+        intelligence,
+        blendedPricePer1M: 5,
+        evaluations: {},
+      },
+      score: 1,
+      badges: ["matched" as const],
+    }));
+    const input = {
+      matched,
+      arena: [],
+      engineId: "balanced" as const,
+      weights: { taskFit: 1, arena: 0, cost: 0 },
+      reasoningModelPatterns: [],
+    };
+    const head = rankRecommendations(input).map((row) => row.sessionModel.id);
+    const extended = rankRecommendations({ ...input, limit: 5 });
+    expect(head).toEqual(["m50", "m40", "m30"]);
+    expect(extended.map((row) => row.sessionModel.id).slice(0, 3)).toEqual(head);
+    expect(extended.map((row) => row.sessionModel.id)).toEqual(["m50", "m40", "m30", "m20", "m10"]);
+  });
 });
 
 describe("absoluteCostScore", () => {
@@ -565,7 +594,7 @@ describe("absoluteCostScore", () => {
 });
 
 describe("matcher + ranker integration", () => {
-  const benches = [
+  const benches: BenchmarkModel[] = [
     {
       slug: "gpt-4o",
       name: "GPT-4o",
@@ -649,5 +678,59 @@ describe("matcher + ranker integration", () => {
     expect(top).toHaveLength(3);
     expect(top[0].badges).toContain("matched");
     expect(top.some((r) => r.badges.includes("weak"))).toBe(true);
+  });
+});
+
+function recommendation(id: string, score: number, price: number, cost: number): Recommendation {
+  return {
+    sessionModel: { id, name: id },
+    score,
+    breakdown: { taskFit: score, arena: 0, cost },
+    contextWindow: "standard",
+    thinkingEffort: "low",
+    rationale: "",
+    badges: ["matched"],
+    blendedPricePer1M: price,
+    costTier: "medium",
+  };
+}
+
+describe("selectRecommendations", () => {
+  const ranked = [
+    recommendation("a", 5, 10, 0.08),
+    recommendation("b", 4, 10, 0.08),
+    recommendation("c", 3, 10, 0.08),
+    recommendation("d", 2, 1, 0.54),
+    recommendation("e", 1, 10, 0.08),
+  ];
+
+  it("keeps the diversified top 3 when limit is omitted or invalid", () => {
+    const top3 = ["a", "b", "d"];
+    expect(selectRecommendations(ranked).map((row) => row.sessionModel.id)).toEqual(top3);
+    expect(selectRecommendations(ranked, 3).map((row) => row.sessionModel.id)).toEqual(top3);
+    expect(selectRecommendations(ranked, 2).map((row) => row.sessionModel.id)).toEqual(top3);
+    expect(selectRecommendations(ranked, 11).map((row) => row.sessionModel.id)).toEqual(top3);
+    expect(selectRecommendations(ranked, 3.5).map((row) => row.sessionModel.id)).toEqual(top3);
+  });
+
+  it("appends later models by rank without moving the top 3", () => {
+    expect(selectRecommendations(ranked, 4).map((row) => row.sessionModel.id)).toEqual([
+      "a",
+      "b",
+      "d",
+      "c",
+    ]);
+    expect(selectRecommendations(ranked, 5).map((row) => row.sessionModel.id)).toEqual([
+      "a",
+      "b",
+      "d",
+      "c",
+      "e",
+    ]);
+  });
+
+  it("returns every model when the list is shorter than the limit", () => {
+    const short = ranked.slice(0, 2);
+    expect(selectRecommendations(short, 5).map((row) => row.sessionModel.id)).toEqual(["a", "b"]);
   });
 });

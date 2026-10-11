@@ -1,3 +1,4 @@
+import { clampRecommendationCount } from "../config";
 import type { MatchedModel } from "../matching/model-matcher";
 import { normalizeModelKey } from "../matching/normalize";
 import type {
@@ -30,6 +31,7 @@ export interface RankRecommendationsInput {
   weights: RankingWeights;
   reasoningModelPatterns: string[];
   customText?: string;
+  limit?: number;
 }
 
 const CONTEXT_TIERS: ContextWindow[] = ["standard", "medium", "high"];
@@ -288,6 +290,7 @@ export function rankRecommendations(input: RankRecommendationsInput): Recommenda
     weights: baseWeights,
     reasoningModelPatterns,
     customText,
+    limit,
   } = input;
   const weights = resolveEngineWeights(engineId, baseWeights);
   const arenaByKey = buildArenaLookup(arena);
@@ -375,7 +378,7 @@ export function rankRecommendations(input: RankRecommendationsInput): Recommenda
 
   const ranked = [...scoredMatched].sort((a, b) => b.score - a.score).concat(scoredWeak);
 
-  return diversifyTop3(ranked).slice(0, 3);
+  return selectRecommendations(ranked, limit);
 }
 
 /**
@@ -406,4 +409,17 @@ export function diversifyTop3(ranked: Recommendation[]): Recommendation[] {
   }
 
   return ranked.filter((r) => chosen.has(r.sessionModel.id)).slice(0, 3);
+}
+
+/**
+ * Keep the diversified top 3, then append later ranked models up to the limit.
+ * An omitted or invalid limit stays at 3.
+ */
+export function selectRecommendations(ranked: Recommendation[], limit?: number): Recommendation[] {
+  const count = clampRecommendationCount(limit);
+  const top = diversifyTop3(ranked);
+  if (count <= top.length) return top;
+  const chosen = new Set(top.map((row) => row.sessionModel.id));
+  const extra = ranked.filter((row) => !chosen.has(row.sessionModel.id));
+  return [...top, ...extra].slice(0, count);
 }

@@ -1,4 +1,7 @@
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
+import { resolveConfig } from "../config";
 import {
   APPLY_STRATEGY,
   ARENA_CATEGORIES,
@@ -7,8 +10,10 @@ import {
   FUZZY_THRESHOLD,
   RANKING_WEIGHTS,
   REASONING_MODEL_PATTERNS,
+  RECOMMENDATION_COUNT_DEFAULT,
+  RECOMMENDATION_COUNT_MAX,
+  RECOMMENDATION_COUNT_MIN,
 } from "../constants";
-import { resolveConfig } from "../config";
 
 describe("resolveConfig", () => {
   it("uses extension constants when raw is empty", () => {
@@ -23,6 +28,7 @@ describe("resolveConfig", () => {
     expect(c.reasoningModelPatterns).toEqual(REASONING_MODEL_PATTERNS);
     expect(c.artificialAnalysis.apiKey).toBe("");
     expect(c.cursor.apiKey).toBe("");
+    expect(c.recommendationCount).toBe(RECOMMENDATION_COUNT_DEFAULT);
   });
 
   it("ignores overrides of internal constants", () => {
@@ -52,5 +58,35 @@ describe("resolveConfig", () => {
     expect(resolveConfig({ language: "fr" }).language).toBe("fr");
     expect(resolveConfig({ language: "de" }).language).toBe("en");
     expect(resolveConfig({ language: "" }).language).toBe("en");
+  });
+
+  it("accepts an integer recommendation count from 3 to 5 and otherwise uses 3", () => {
+    expect(resolveConfig({ recommendationCount: 3 }).recommendationCount).toBe(3);
+    expect(resolveConfig({ recommendationCount: 4 }).recommendationCount).toBe(4);
+    expect(resolveConfig({ recommendationCount: 5 }).recommendationCount).toBe(5);
+    expect(resolveConfig({ recommendationCount: 2 }).recommendationCount).toBe(3);
+    expect(resolveConfig({ recommendationCount: 6 }).recommendationCount).toBe(3);
+    expect(resolveConfig({ recommendationCount: 10 }).recommendationCount).toBe(3);
+    expect(resolveConfig({ recommendationCount: 3.5 }).recommendationCount).toBe(3);
+    expect(resolveConfig({ recommendationCount: "4" }).recommendationCount).toBe(3);
+  });
+
+  it("matches the contributed recommendationCount bounds", () => {
+    const pkg = JSON.parse(readFileSync(resolve(process.cwd(), "package.json"), "utf8")) as {
+      contributes: {
+        configuration: {
+          properties: Record<string, { minimum?: number; maximum?: number; default?: number }>;
+        };
+      };
+    };
+    const property =
+      pkg.contributes.configuration.properties["taskModelAdvisor.recommendationCount"];
+    expect(property).toMatchObject({
+      type: "number",
+      minimum: RECOMMENDATION_COUNT_MIN,
+      maximum: RECOMMENDATION_COUNT_MAX,
+      default: RECOMMENDATION_COUNT_DEFAULT,
+      description: "Number of model recommendations to show (3–5).",
+    });
   });
 });

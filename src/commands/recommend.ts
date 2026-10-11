@@ -30,6 +30,7 @@ function loadAdvisorConfig(): AdvisorConfig {
       apiKey: section.get<string>("cursor.apiKey"),
     },
     language: section.get<string>("language"),
+    recommendationCount: section.get<number>("recommendationCount"),
   });
 }
 
@@ -153,6 +154,7 @@ export async function runRecommendCommand(): Promise<void> {
       weights: config.ranking.weights,
       reasoningModelPatterns: config.reasoningModelPatterns,
       customText,
+      limit: config.recommendationCount,
     });
 
     const taskLabel = customText ? messages.task.presets.other : messages.task.presets[presetId];
