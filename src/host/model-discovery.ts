@@ -1,6 +1,7 @@
 import * as vscode from "vscode";
 import type { SessionModel } from "../types";
 import { discoverCursorSessionModels } from "./cursor-model-discovery";
+import { dedupeSessionModels } from "./dedupe-session-models";
 
 export async function discoverSessionModels(opts?: {
   cursorApiKey?: string;
@@ -12,12 +13,14 @@ export async function discoverSessionModels(opts?: {
     const lmModels = await vscode.lm.selectChatModels();
     if (lmModels.length > 0) {
       return {
-        models: lmModels.map((m) => ({
-          id: m.id,
-          name: m.name,
-          family: m.family,
-          vendor: m.vendor,
-        })),
+        models: dedupeSessionModels(
+          lmModels.map((m) => ({
+            id: m.id,
+            name: m.name,
+            family: m.family,
+            vendor: m.vendor,
+          }))
+        ),
         warnings,
       };
     }
@@ -36,7 +39,7 @@ export async function discoverSessionModels(opts?: {
     });
     if (cursor.models.length > 0) {
       warnings.push(`Session models loaded from Cursor (${cursor.source}).`);
-      return { models: cursor.models, warnings };
+      return { models: dedupeSessionModels(cursor.models), warnings };
     }
     if (cursor.detail) {
       warnings.push(cursor.detail);
