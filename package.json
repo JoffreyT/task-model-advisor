@@ -2,7 +2,7 @@
   "name": "task-model-advisor",
   "displayName": "Task Model Advisor",
   "description": "Recommend the best available LLM (model, context, thinking) for a task using live benchmarks.",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "publisher": "jft63",
   "license": "MIT",
   "repository": {
