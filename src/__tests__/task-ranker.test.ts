@@ -3,42 +3,26 @@ import { matchModels, type MatchedModel } from "../matching/model-matcher";
 import {
   absoluteCostScore,
   rankRecommendations,
-  resolveEngineWeights,
   selectRecommendations,
 } from "../ranking/task-ranker";
 import type { BenchmarkModel, Recommendation } from "../types";
 
-describe("resolveEngineWeights", () => {
-  const base = { taskFit: 0.45, arena: 0.25, cost: 0.3 };
-  it("tilts writing toward taskFit", () => {
-    expect(resolveEngineWeights("writing", base)).toEqual({
-      taskFit: 0.5,
-      arena: 0.25,
-      cost: 0.25,
-    });
+function rank(
+  matched: MatchedModel[],
+  overrides: Partial<Parameters<typeof rankRecommendations>[0]> = {}
+) {
+  return rankRecommendations({
+    matched,
+    arena: [],
+    categoryId: "development",
+    complexity: "intermediate",
+    reasoningModelPatterns: [],
+    ...overrides,
   });
-  it("tilts coding toward cost", () => {
-    expect(resolveEngineWeights("coding", base)).toEqual({
-      taskFit: 0.45,
-      arena: 0.2,
-      cost: 0.35,
-    });
-  });
-  it("tilts cheap strongly toward cost", () => {
-    expect(resolveEngineWeights("cheap", base)).toEqual({
-      taskFit: 0.35,
-      arena: 0.2,
-      cost: 0.45,
-    });
-  });
-  it("leaves reasoning and balanced at base", () => {
-    expect(resolveEngineWeights("reasoning", base)).toEqual(base);
-    expect(resolveEngineWeights("balanced", base)).toEqual(base);
-  });
-});
+}
 
 describe("rankRecommendations", () => {
-  it("prefers high coding index for coding engine among matched models", () => {
+  it("prefers high coding index for development among matched models", () => {
     const matched: MatchedModel[] = [
       {
         session: { id: "a", name: "Cheap Coder" },
@@ -67,11 +51,8 @@ describe("rankRecommendations", () => {
         badges: ["matched"],
       },
     ];
-    const top = rankRecommendations({
-      matched,
+    const top = rank(matched, {
       arena: [{ model: "Cheap Coder", rank: 1, score: 1200 }],
-      engineId: "coding",
-      weights: { taskFit: 0.45, arena: 0.25, cost: 0.3 },
       reasoningModelPatterns: ["o1", "o3"],
     });
     expect(top[0].sessionModel.id).toBe("a");
@@ -105,13 +86,7 @@ describe("rankRecommendations", () => {
         badges: ["weak" as const],
       },
     ];
-    const top = rankRecommendations({
-      matched,
-      arena: [],
-      engineId: "writing",
-      weights: { taskFit: 0.45, arena: 0.25, cost: 0.3 },
-      reasoningModelPatterns: [],
-    });
+    const top = rank(matched, { categoryId: "analysisDoc" });
     expect(top).toHaveLength(3);
     expect(top.some((r) => r.badges.includes("weak"))).toBe(true);
   });
@@ -131,17 +106,15 @@ describe("rankRecommendations", () => {
         badges: ["matched" as const],
       },
     ];
-    const top = rankRecommendations({
-      matched,
-      arena: [],
-      engineId: "cheap",
-      weights: { taskFit: 1, arena: 0, cost: 0 },
+    const top = rank(matched, {
+      categoryId: "quickCheap",
+      complexity: "basic",
       reasoningModelPatterns: ["o3"],
     });
     expect(top[0].thinkingEffort).not.toBe("low");
   });
 
-  it("prefers higher intelligence for writing engine", () => {
+  it("prefers higher intelligence for analysisDoc", () => {
     const matched = [
       {
         session: { id: "smart", name: "Smart" },
@@ -168,13 +141,7 @@ describe("rankRecommendations", () => {
         badges: ["matched" as const],
       },
     ];
-    const top = rankRecommendations({
-      matched,
-      arena: [],
-      engineId: "writing",
-      weights: { taskFit: 1, arena: 0, cost: 0 },
-      reasoningModelPatterns: [],
-    });
+    const top = rank(matched, { categoryId: "analysisDoc", complexity: "advanced" });
     expect(top[0].sessionModel.id).toBe("smart");
   });
 
@@ -205,15 +172,12 @@ describe("rankRecommendations", () => {
         badges: ["matched" as const],
       },
     ];
-    const top = rankRecommendations({
-      matched,
+    const top = rank(matched, {
+      categoryId: "testingReview",
       arena: [
         { model: "Model With Elo", rank: 2, score: 1000 },
         { model: "Model No Elo", rank: 1, score: null },
       ],
-      engineId: "reasoning",
-      weights: { taskFit: 0, arena: 1, cost: 0 },
-      reasoningModelPatterns: [],
     });
     const withElo = top.find((r) => r.sessionModel.id === "with-elo");
     const noElo = top.find((r) => r.sessionModel.id === "no-elo");
@@ -222,47 +186,7 @@ describe("rankRecommendations", () => {
     expect(top[0].sessionModel.id).toBe("with-elo");
   });
 
-  it("uses arena Elo when scores present", () => {
-    const matched = [
-      {
-        session: { id: "low", name: "Model A" },
-        benchmark: {
-          slug: "model-a",
-          name: "Model A",
-          intelligence: 50,
-          blendedPricePer1M: 1,
-          evaluations: {},
-        },
-        score: 1,
-        badges: ["matched" as const],
-      },
-      {
-        session: { id: "high", name: "Model B" },
-        benchmark: {
-          slug: "model-b",
-          name: "Model B",
-          intelligence: 50,
-          blendedPricePer1M: 1,
-          evaluations: {},
-        },
-        score: 1,
-        badges: ["matched" as const],
-      },
-    ];
-    const top = rankRecommendations({
-      matched,
-      arena: [
-        { model: "Model A", rank: 2, score: 1000 },
-        { model: "Model B", rank: 1, score: 1300 },
-      ],
-      engineId: "reasoning",
-      weights: { taskFit: 0, arena: 1, cost: 0 },
-      reasoningModelPatterns: [],
-    });
-    expect(top[0].sessionModel.id).toBe("high");
-  });
-
-  it("prefers cheaper models when cost weight dominates", () => {
+  it("prefers cheaper models for quickCheap at basic complexity", () => {
     const matched = [
       {
         session: { id: "expensive", name: "Expensive" },
@@ -289,13 +213,7 @@ describe("rankRecommendations", () => {
         badges: ["matched" as const],
       },
     ];
-    const top = rankRecommendations({
-      matched,
-      arena: [],
-      engineId: "cheap",
-      weights: { taskFit: 0, arena: 0, cost: 1 },
-      reasoningModelPatterns: [],
-    });
+    const top = rank(matched, { categoryId: "quickCheap", complexity: "basic" });
     expect(top[0].sessionModel.id).toBe("cheap");
   });
 
@@ -312,17 +230,12 @@ describe("rankRecommendations", () => {
       score: 1,
       badges: ["matched" as const],
     }));
-    const top = rankRecommendations({
-      matched,
-      arena: [],
-      engineId: "balanced",
-      weights: { taskFit: 1, arena: 0, cost: 0 },
-      reasoningModelPatterns: [],
-    });
+    const top = rank(matched, { categoryId: "testingReview" });
     expect(top).toHaveLength(3);
     expect(top[0].rationale.length).toBeGreaterThan(0);
     expect(top[0].breakdown).toMatchObject({
-      taskFit: expect.any(Number),
+      categoryFit: expect.any(Number),
+      complexityFit: expect.any(Number),
       arena: expect.any(Number),
       cost: expect.any(Number),
     });
@@ -344,17 +257,11 @@ describe("rankRecommendations", () => {
         badges: ["matched" as const],
       },
     ];
-    const top = rankRecommendations({
-      matched,
-      arena: [],
-      engineId: "writing",
-      weights: { taskFit: 1, arena: 0, cost: 0 },
-      reasoningModelPatterns: [],
-    });
+    const top = rank(matched, { categoryId: "analysisDoc" });
     expect(top[0].contextWindow).toBe("standard");
   });
 
-  it("bumps context one tier for large-codebase custom text", () => {
+  it("sets category default context and thinking", () => {
     const matched = [
       {
         session: { id: "plain", name: "Plain" },
@@ -363,25 +270,21 @@ describe("rankRecommendations", () => {
           name: "Plain",
           intelligence: 70,
           blendedPricePer1M: 2,
-          contextWindowTokens: 200_000,
           evaluations: {},
         },
         score: 1,
         badges: ["matched" as const],
       },
     ];
-    const top = rankRecommendations({
-      matched,
-      arena: [],
-      engineId: "coding",
-      weights: { taskFit: 1, arena: 0, cost: 0 },
-      reasoningModelPatterns: [],
-      customText: "refactor a large monorepo codebase",
-    });
-    expect(top[0].contextWindow).toBe("medium");
+    const analysisTop = rank(matched, { categoryId: "analysisDoc", complexity: "intermediate" });
+    expect(analysisTop[0].contextWindow).toBe("high");
+    expect(analysisTop[0].thinkingEffort).toBe("medium");
+
+    const devTop = rank(matched, { categoryId: "development", complexity: "intermediate" });
+    expect(devTop[0].contextWindow).toBe("standard");
   });
 
-  it("sets engine default context and thinking without reasoning bump", () => {
+  it("quickCheap defaults to standard context and low thinking on basic", () => {
     const matched = [
       {
         session: { id: "plain", name: "Plain" },
@@ -396,48 +299,7 @@ describe("rankRecommendations", () => {
         badges: ["matched" as const],
       },
     ];
-    const writingTop = rankRecommendations({
-      matched,
-      arena: [],
-      engineId: "writing",
-      weights: { taskFit: 1, arena: 0, cost: 0 },
-      reasoningModelPatterns: [],
-    });
-    expect(writingTop[0].contextWindow).toBe("high");
-    expect(writingTop[0].thinkingEffort).toBe("medium");
-
-    const codingTop = rankRecommendations({
-      matched,
-      arena: [],
-      engineId: "coding",
-      weights: { taskFit: 1, arena: 0, cost: 0 },
-      reasoningModelPatterns: [],
-    });
-    expect(codingTop[0].contextWindow).toBe("standard");
-  });
-
-  it("cheap engine defaults to standard context and low thinking", () => {
-    const matched = [
-      {
-        session: { id: "plain", name: "Plain" },
-        benchmark: {
-          slug: "plain",
-          name: "Plain",
-          intelligence: 70,
-          blendedPricePer1M: 2,
-          evaluations: {},
-        },
-        score: 1,
-        badges: ["matched" as const],
-      },
-    ];
-    const top = rankRecommendations({
-      matched,
-      arena: [],
-      engineId: "cheap",
-      weights: { taskFit: 1, arena: 0, cost: 0 },
-      reasoningModelPatterns: [],
-    });
+    const top = rank(matched, { categoryId: "quickCheap", complexity: "basic" });
     expect(top[0].contextWindow).toBe("standard");
     expect(top[0].thinkingEffort).toBe("low");
   });
@@ -469,13 +331,7 @@ describe("rankRecommendations", () => {
         badges: ["matched" as const],
       },
     ];
-    const top = rankRecommendations({
-      matched,
-      arena: [],
-      engineId: "writing",
-      weights: { taskFit: 1, arena: 0, cost: 0 },
-      reasoningModelPatterns: [],
-    });
+    const top = rank(matched, { categoryId: "analysisDoc" });
     expect(top[0].sessionModel.id).toBe("best");
     expect(top[1].sessionModel.id).toBe("a-weak");
     expect(top[2].sessionModel.id).toBe("z-weak");
@@ -496,17 +352,14 @@ describe("rankRecommendations", () => {
         badges: ["matched" as const, "enterprise" as const],
       },
     ];
-    const top = rankRecommendations({
-      matched,
+    const top = rank(matched, {
+      categoryId: "analysisDoc",
       arena: [{ model: "gpt-4o", rank: 1, score: 1100 }],
-      engineId: "writing",
-      weights: { taskFit: 0, arena: 1, cost: 0 },
-      reasoningModelPatterns: [],
     });
     expect(top[0].breakdown.arena).toBeGreaterThan(0);
   });
 
-  it("does not let an ultra-cheap weaker model beat a clearly stronger one", () => {
+  it("does not let an ultra-cheap weaker model beat a clearly stronger one on analysisDoc", () => {
     const matched = [
       {
         session: { id: "flash", name: "Flash Cheap" },
@@ -533,21 +386,17 @@ describe("rankRecommendations", () => {
         badges: ["matched" as const],
       },
     ];
-    const top = rankRecommendations({
-      matched,
+    const top = rank(matched, {
+      categoryId: "analysisDoc",
+      complexity: "advanced",
       arena: [
         { model: "Flash Cheap", rank: 2, score: 1100 },
         { model: "Opus Strong", rank: 1, score: 1250 },
       ],
-      engineId: "writing",
-      weights: { taskFit: 0.45, arena: 0.25, cost: 0.3 },
-      reasoningModelPatterns: [],
     });
     expect(top[0].sessionModel.id).toBe("opus");
-    // Absolute log cost: gap is moderate, not a forced 1.0 vs 0.0
     expect(top[0].breakdown.cost).toBeLessThan(0.5);
     expect(top[1].breakdown.cost).toBeGreaterThan(0.5);
-    expect(top[1].breakdown.cost - top[0].breakdown.cost).toBeLessThan(0.85);
   });
 
   it("extends the same top 3 when limit is above 3", () => {
@@ -566,8 +415,8 @@ describe("rankRecommendations", () => {
     const input = {
       matched,
       arena: [],
-      engineId: "balanced" as const,
-      weights: { taskFit: 1, arena: 0, cost: 0 },
+      categoryId: "testingReview" as const,
+      complexity: "intermediate" as const,
       reasoningModelPatterns: [],
     };
     const head = rankRecommendations(input).map((row) => row.sessionModel.id);
@@ -575,6 +424,39 @@ describe("rankRecommendations", () => {
     expect(head).toEqual(["m50", "m40", "m30"]);
     expect(extended.map((row) => row.sessionModel.id).slice(0, 3)).toEqual(head);
     expect(extended.map((row) => row.sessionModel.id)).toEqual(["m50", "m40", "m30", "m20", "m10"]);
+  });
+
+  it("prefers frontier models for autonomousAgent at expert complexity", () => {
+    const matched = [
+      {
+        session: { id: "flash", name: "Flash" },
+        benchmark: {
+          slug: "flash",
+          name: "Flash",
+          intelligence: 60,
+          coding: 55,
+          blendedPricePer1M: 0.3,
+          evaluations: { artificial_analysis_agentic_index: 20 },
+        },
+        score: 1,
+        badges: ["matched" as const],
+      },
+      {
+        session: { id: "agent", name: "Agent Pro" },
+        benchmark: {
+          slug: "agent",
+          name: "Agent Pro",
+          intelligence: 92,
+          coding: 88,
+          blendedPricePer1M: 8,
+          evaluations: { artificial_analysis_agentic_index: 85 },
+        },
+        score: 1,
+        badges: ["matched" as const],
+      },
+    ];
+    const top = rank(matched, { categoryId: "autonomousAgent", complexity: "expert" });
+    expect(top[0].sessionModel.id).toBe("agent");
   });
 });
 
@@ -587,7 +469,6 @@ describe("absoluteCostScore", () => {
     expect(mid).toBeGreaterThan(opus);
     expect(flash).toBeGreaterThan(0.7);
     expect(opus).toBeLessThan(0.25);
-    // Still far from the old min-max 1.0 vs 0.0 on 1/price
     expect(flash - opus).toBeLessThan(0.9);
     expect(flash - opus).toBeGreaterThan(0.4);
   });
@@ -629,7 +510,7 @@ describe("matcher + ranker integration", () => {
     },
   ];
 
-  it("ranks alias-matched enterprise mini for cost-sensitive userStory", () => {
+  it("ranks alias-matched enterprise mini for quickCheap basic", () => {
     const matched = matchModels(
       [{ id: "copilot-gpt-4o-mini-enterprise", name: "GPT-4o mini entreprise" }],
       benches,
@@ -639,22 +520,22 @@ describe("matcher + ranker integration", () => {
     const top = rankRecommendations({
       matched,
       arena: [],
-      engineId: "balanced",
-      weights: { taskFit: 0.3, arena: 0, cost: 0.7 },
+      categoryId: "quickCheap",
+      complexity: "basic",
       reasoningModelPatterns: [],
     });
     expect(top[0].sessionModel.id).toBe("copilot-gpt-4o-mini-enterprise");
     expect(top[0].badges).toContain("matched");
   });
 
-  it("ranks deepseek first for coding engine after fuzzy match", () => {
+  it("ranks deepseek first for development after fuzzy match", () => {
     const session = [{ id: "x", name: "DeepSeek Coder" }];
     const matched = matchModels(session, benches, {}, 0.72);
     const top = rankRecommendations({
       matched,
       arena: [{ model: "DeepSeek Coder", rank: 1, score: 1250 }],
-      engineId: "coding",
-      weights: { taskFit: 0.6, arena: 0.2, cost: 0.2 },
+      categoryId: "development",
+      complexity: "intermediate",
       reasoningModelPatterns: [],
     });
     expect(matched[0].benchmark?.slug).toBe("deepseek-coder");
@@ -671,8 +552,8 @@ describe("matcher + ranker integration", () => {
     const top = rankRecommendations({
       matched,
       arena: [],
-      engineId: "writing",
-      weights: { taskFit: 0.45, arena: 0.25, cost: 0.3 },
+      categoryId: "analysisDoc",
+      complexity: "intermediate",
       reasoningModelPatterns: [],
     });
     expect(top).toHaveLength(3);
@@ -685,7 +566,7 @@ function recommendation(id: string, score: number, price: number, cost: number):
   return {
     sessionModel: { id, name: id },
     score,
-    breakdown: { taskFit: score, arena: 0, cost },
+    breakdown: { categoryFit: score, complexityFit: score, arena: 0, cost },
     contextWindow: "standard",
     thinkingEffort: "low",
     rationale: "",

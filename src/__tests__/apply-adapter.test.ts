@@ -34,7 +34,7 @@ function fakeRec(
   return {
     sessionModel: { id, name, vendor: "cursor" },
     score: 1,
-    breakdown: { taskFit: 1, arena: 0, cost: 0.5 },
+    breakdown: { categoryFit: 1, complexityFit: 0.8, arena: 0, cost: 0.5 },
     contextWindow: overrides.contextWindow ?? "medium",
     thinkingEffort: overrides.thinkingEffort ?? "low",
     rationale: "test",
@@ -106,10 +106,10 @@ describe("thinking / context mapping", () => {
 });
 
 describe("toClipboardPayload", () => {
-  it("writes preset id as task and ranking engine as engine", () => {
-    const payload = toClipboardPayload(fakeRec(), "writeCode", "coding", 2);
-    expect(payload.task).toBe("writeCode");
-    expect(payload.engine).toBe("coding");
+  it("writes category and complexity", () => {
+    const payload = toClipboardPayload(fakeRec(), "development", "intermediate", 2);
+    expect(payload.category).toBe("development");
+    expect(payload.complexity).toBe("intermediate");
     expect(payload.rank).toBe(2);
     expect(payload.modelId).toBe("grok-4.6");
   });

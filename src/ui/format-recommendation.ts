@@ -1,19 +1,28 @@
-import { RANKING_WEIGHTS } from "../constants";
+import { CATEGORY_SCORE_WEIGHT, COMPLEXITY_SCORE_WEIGHT } from "../ranking/category-fit";
 import type { Messages } from "../i18n/types";
-import type { RankingWeights, Recommendation } from "../types";
+import type { Recommendation } from "../types";
 
-type FactorId = "taskFit" | "arena" | "cost";
+type FactorId = "categoryFit" | "complexityFit" | "arena" | "cost";
 
 function capitalize(text: string): string {
   if (!text) return text;
   return text.charAt(0).toUpperCase() + text.slice(1);
 }
 
-function topFactors(rec: Recommendation, weights: RankingWeights): FactorId[] {
+function topFactors(rec: Recommendation): FactorId[] {
   const factors: Array<{ id: FactorId; contribution: number; order: number }> = [
-    { id: "taskFit", contribution: weights.taskFit * rec.breakdown.taskFit, order: 0 },
-    { id: "arena", contribution: weights.arena * rec.breakdown.arena, order: 1 },
-    { id: "cost", contribution: weights.cost * rec.breakdown.cost, order: 2 },
+    {
+      id: "categoryFit",
+      contribution: CATEGORY_SCORE_WEIGHT * rec.breakdown.categoryFit,
+      order: 0,
+    },
+    {
+      id: "complexityFit",
+      contribution: COMPLEXITY_SCORE_WEIGHT * rec.breakdown.complexityFit,
+      order: 1,
+    },
+    { id: "arena", contribution: 0.25 * rec.breakdown.arena, order: 2 },
+    { id: "cost", contribution: 0.3 * rec.breakdown.cost, order: 3 },
   ];
   return factors
     .filter((factor) => factor.contribution > 0)
@@ -49,13 +58,13 @@ function priceRole(
 
 function isBestFit(rec: Recommendation, visible: Recommendation[]): boolean {
   const peers = visible.filter((row) => !row.badges.includes("weak"));
-  return peers.every((row) => row === rec || rec.breakdown.taskFit > row.breakdown.taskFit);
+  return peers.every((row) => row === rec || rec.breakdown.categoryFit > row.breakdown.categoryFit);
 }
 
-/** Compact score line for QuickPick (fit / arena / cost / total). */
+/** Compact score line for QuickPick. */
 export function formatScoreBreakdown(rec: Recommendation): string {
-  const { taskFit, arena, cost } = rec.breakdown;
-  return `score ${rec.score.toFixed(2)} · fit ${taskFit.toFixed(2)} · arena ${arena.toFixed(2)} · cost ${cost.toFixed(2)}`;
+  const { categoryFit, complexityFit, arena, cost } = rec.breakdown;
+  return `score ${rec.score.toFixed(2)} · cat ${categoryFit.toFixed(2)} · cx ${complexityFit.toFixed(2)} · arena ${arena.toFixed(2)} · cost ${cost.toFixed(2)}`;
 }
 
 export function formatRecommendationDescription(rec: Recommendation, messages: Messages): string {
@@ -73,14 +82,16 @@ export function formatRecommendationDetail(
   const sentence = messages.recommendations.sentence;
   if (rec.badges.includes("weak")) return sentence.weak;
 
-  const factors = topFactors(rec, RANKING_WEIGHTS);
+  const factors = topFactors(rec);
   const clauses: string[] = [];
-  if (factors.includes("taskFit")) {
+  if (factors.includes("categoryFit") || factors.includes("complexityFit")) {
     if (isBestFit(rec, visible)) clauses.push(sentence.bestFit);
-    else if (rec.breakdown.taskFit >= 0.5) clauses.push(sentence.strongFit);
+    else if (rec.breakdown.categoryFit >= 0.5) clauses.push(sentence.strongFit);
     else clauses.push(sentence.weakerFit);
   }
-  if (factors.includes("arena")) clauses.push(sentence.comparisons);
+  if (factors.includes("arena") || rec.breakdown.arena >= 0.5) {
+    clauses.push(sentence.comparisons);
+  }
 
   let body = "";
   if (clauses.length === 2) body = `${clauses[0]}${sentence.fitComparisonsJoiner}${clauses[1]}`;
@@ -93,7 +104,7 @@ export function formatRecommendationDetail(
     return `${lead} ${capitalize(body)}.`;
   }
 
-  if (factors.includes("cost") && role !== "priciest") {
+  if (role !== "priciest" && rec.breakdown.cost >= 0.35) {
     body = body ? `${body}, ${sentence.reasonablePrice}` : sentence.reasonablePrice;
   }
 

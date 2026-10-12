@@ -2,20 +2,24 @@ import type { Messages } from "./types";
 
 export const en: Messages = {
   task: {
-    placeholder: "What kind of task?",
-    presets: {
-      writeCode: "Write / edit code",
-      debug: "Debug / explain a bug",
-      refactor: "Refactor / restructure",
-      codeReview: "Review code / find issues",
-      spec: "Write a spec / technical doc",
-      userStory: "Write a user story",
-      tests: "Write tests / scenarios",
-      cheap: "Quick task / cheaper model",
-      other: "Other…",
+    categoryPlaceholder: "What kind of work?",
+    complexityPlaceholder: "How complex is the task?",
+    categories: {
+      quickCheap: "⚡ Quick / Cheap",
+      analysisDoc: "📋 Analysis & Documentation",
+      development: "💻 Development",
+      testingReview: "🧪 Testing & Review",
+      debugging: "🐞 Debugging",
+      architectureDesign: "🏗️ Architecture & Design",
+      autonomousAgent: "🤖 Autonomous Agent",
     },
-    otherPrompt: "Describe the task",
-    otherPlaceholder: "e.g. refactor the auth module",
+    complexity: {
+      basic: "○ Basic",
+      intermediate: "○ Intermediate",
+      advanced: "○ Advanced",
+      expert: "○ Expert",
+    },
+    taskLabel: (category, complexity) => `${category} · ${complexity}`,
   },
   recommendations: {
     placeholder: "Choose a recommendation",
@@ -48,33 +52,28 @@ export const en: Messages = {
     placeholder: "Action",
     apply: "Apply (copy config)",
     copy: "Copy only",
-    refresh: "Refresh benchmarks",
+    refresh: "Refresh",
   },
   notifications: {
     unknownPrice: "unknown price",
     toastPrice: (amount) =>
-      amount !== null && Number.isFinite(amount) ? `~$${amount.toFixed(2)}/1M` : "unknown price",
-    copySuccess: (name, price) => `Task Model Advisor: config copied for "${name}" (${price}).`,
-    copyFailed: (message) => `Task Model Advisor: could not copy (${message}).`,
-    validationFailed: (message) => `Task Model Advisor: validation failed (${message}).`,
+      amount != null && Number.isFinite(amount) ? `~$${amount.toFixed(2)}/1M` : "unknown price",
+    copySuccess: (name, price) => `Copied config for ${name} (${price}).`,
+    copyFailed: (message) => `Copy failed: ${message}`,
+    validationFailed: (message) => `Could not apply recommendation: ${message}`,
     manualApply: (name, price, context, thinking) =>
       `Task Model Advisor: model "${name}" (${price}), context "${context}", thinking "${thinking}". Config copied — set these manually in the Agent picker.`,
     cursorSuccess: (input) => {
       const via = input.kind === "new-agent" ? "new Agent" : "current composer model";
-      const parts = [`model "${input.name}" (${input.price})`];
-      if (input.thinkingApplied) {
-        parts.push(`thinking "${input.thinking}" (effort)`);
-      } else {
-        parts.push(`thinking "${input.thinking}"`);
-      }
-      if (input.maxModeApplied) {
-        parts.push(`Max Mode ${input.maxModeOn ? "ON" : "OFF"} (context ${input.context})`);
-      } else {
-        parts.push(`context "${input.context}" must be set manually (Max Mode)`);
-      }
-      return `Task Model Advisor: ${via} → ${parts.join(" · ")} via ${input.commandId}. Config copied too.`;
+      const thinkingPart = input.thinkingApplied
+        ? `thinking "${input.thinking}" (effort)`
+        : `thinking "${input.thinking}"`;
+      const maxPart = input.maxModeApplied
+        ? `Max Mode ${input.maxModeOn ? "ON" : "OFF"} (context ${input.context})`
+        : `context "${input.context}" must be set manually (Max Mode)`;
+      return `Task Model Advisor: ${via} → model "${input.name}" (${input.price}) · ${thinkingPart} · ${maxPart} via ${input.commandId}. Config copied too.`;
     },
-    probesFailed: (errors) => `probes failed (${errors})`,
-    noRunnableProbe: "no runnable probe",
+    probesFailed: (errors) => `Cursor apply probes failed:\n${errors}`,
+    noRunnableProbe: "No Cursor command accepted the model switch; config copied to clipboard.",
   },
 };

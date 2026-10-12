@@ -1,13 +1,15 @@
-import type { ApplyStrategy, ArenaSource, RankingWeights, RankingEngineId } from "./types";
+import type { ApplyStrategy, ArenaSource, RankingWeights, TaskCategoryId } from "./types";
 
 export const ARENA_SOURCE: ArenaSource = "wulong-mirror";
 
-export const ARENA_CATEGORIES: Record<RankingEngineId, string> = {
-  coding: "coding",
-  reasoning: "hard_prompts",
-  writing: "text",
-  cheap: "text",
-  balanced: "text",
+export const ARENA_CATEGORIES: Record<TaskCategoryId, string> = {
+  quickCheap: "text",
+  analysisDoc: "text",
+  development: "coding",
+  testingReview: "hard_prompts",
+  debugging: "coding",
+  architectureDesign: "hard_prompts",
+  autonomousAgent: "coding",
 };
 
 export const RANKING_WEIGHTS: RankingWeights = {

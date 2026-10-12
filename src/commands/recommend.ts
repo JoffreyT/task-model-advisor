@@ -13,8 +13,8 @@ import type {
   AdvisorConfig,
   ArenaEntry,
   BenchmarkModel,
-  RankingEngineId,
   SessionModel,
+  TaskCategoryId,
 } from "../types";
 import { messagesFor } from "../i18n";
 import { showRecommendations } from "../ui/recommendation-ui";
@@ -43,10 +43,10 @@ interface FetchBundle {
 
 async function fetchBenchmarksAndSession(
   config: AdvisorConfig,
-  engineId: RankingEngineId
+  categoryId: TaskCategoryId
 ): Promise<FetchBundle> {
   const warnings: string[] = [];
-  const arenaCategory = config.arena.categories[engineId];
+  const arenaCategory = config.arena.categories[categoryId];
 
   const aaPromise = fetchArtificialAnalysisModels({
     apiKey: config.artificialAnalysis.apiKey,
@@ -105,7 +105,7 @@ export async function runRecommendCommand(): Promise<void> {
   const task = await pickTask(messages);
   if (!task) return;
 
-  const { presetId, engineId, customText } = task;
+  const { categoryId, complexity } = task;
 
   while (true) {
     let bundle: FetchBundle;
@@ -117,7 +117,7 @@ export async function runRecommendCommand(): Promise<void> {
           title: "Task Model Advisor",
           cancellable: false,
         },
-        async () => fetchBenchmarksAndSession(config, engineId)
+        async () => fetchBenchmarksAndSession(config, categoryId)
       );
     } catch (err) {
       if (err instanceof ArtificialAnalysisError) {
@@ -150,14 +150,16 @@ export async function runRecommendCommand(): Promise<void> {
     const recommendations = rankRecommendations({
       matched,
       arena,
-      engineId,
-      weights: config.ranking.weights,
+      categoryId,
+      complexity,
       reasoningModelPatterns: config.reasoningModelPatterns,
-      customText,
       limit: config.recommendationCount,
     });
 
-    const taskLabel = customText ? messages.task.presets.other : messages.task.presets[presetId];
+    const taskLabel = messages.task.taskLabel(
+      messages.task.categories[categoryId],
+      messages.task.complexity[complexity]
+    );
     const choice = await showRecommendations(recommendations, warnings, taskLabel, messages);
     if (!choice) return;
 
@@ -171,12 +173,12 @@ export async function runRecommendCommand(): Promise<void> {
     }
 
     if (choice.action === "copy") {
-      await copyRecommendationToClipboard(rec, presetId, engineId, messages, rank);
+      await copyRecommendationToClipboard(rec, categoryId, complexity, messages, rank);
       return;
     }
 
     try {
-      await applyRecommendation(rec, config.applyStrategy, presetId, engineId, messages, rank);
+      await applyRecommendation(rec, config.applyStrategy, categoryId, complexity, messages, rank);
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       void vscode.window.showErrorMessage(messages.notifications.validationFailed(message));

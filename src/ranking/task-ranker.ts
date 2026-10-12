@@ -4,20 +4,22 @@ import { normalizeModelKey } from "../matching/normalize";
 import type {
   ArenaEntry,
   BenchmarkModel,
-  RankingEngineId,
-  RankingWeights,
+  ComplexityLevel,
   Recommendation,
   SessionModel,
+  TaskCategoryId,
 } from "../types";
+import {
+  CATEGORY_SCORE_WEIGHT,
+  COMPLEXITY_SCORE_WEIGHT,
+  blendCategoryPillar,
+  rawCategoryFit,
+  rawComplexityFit,
+  resolveCategoryDefaults,
+} from "./category-fit";
+import { absoluteCostScore } from "./cost-score";
 
 const WEAK_SCORE_OFFSET = 0.001;
-/**
- * Log-price anchors for absolute cost score ($/1M).
- * Ceiling ~$15 so frontier models (~$6–8) are clearly expensive without
- * the old 1/price min-max that made flash models auto-win.
- */
-const COST_PRICE_FLOOR = 0.1;
-const COST_PRICE_CEILING = 15;
 
 const THINKING_LEVELS = ["off", "low", "medium", "high"] as const;
 
@@ -27,10 +29,9 @@ type ContextWindow = Recommendation["contextWindow"];
 export interface RankRecommendationsInput {
   matched: MatchedModel[];
   arena: ArenaEntry[];
-  engineId: RankingEngineId;
-  weights: RankingWeights;
+  categoryId: TaskCategoryId;
+  complexity: ComplexityLevel;
   reasoningModelPatterns: string[];
-  customText?: string;
   limit?: number;
 }
 
@@ -38,45 +39,6 @@ const CONTEXT_TIERS: ContextWindow[] = ["standard", "medium", "high"];
 
 function isWeakMatch(m: MatchedModel): boolean {
   return m.benchmark === null || m.badges.includes("weak");
-}
-
-function evalValue(benchmark: BenchmarkModel, keys: string[]): number | null {
-  for (const key of keys) {
-    const direct = benchmark.evaluations[key];
-    if (direct != null) return direct;
-    const lower = key.toLowerCase();
-    for (const [k, v] of Object.entries(benchmark.evaluations)) {
-      if (k.toLowerCase() === lower && v != null) return v;
-    }
-  }
-  return null;
-}
-
-function scaleEval(value: number): number {
-  return value <= 1 ? value * 100 : value;
-}
-
-function rawTaskFit(benchmark: BenchmarkModel, engineId: RankingEngineId): number {
-  switch (engineId) {
-    case "coding": {
-      const coding = benchmark.coding ?? 0;
-      const lcbRaw = evalValue(benchmark, ["livecodebench", "LiveCodeBench"]);
-      const lcb = lcbRaw != null ? scaleEval(lcbRaw) : coding;
-      if (coding > 0 && lcbRaw != null) return coding * 0.7 + lcb * 0.3;
-      return coding > 0 ? coding : lcb;
-    }
-    case "writing": {
-      const intel = benchmark.intelligence ?? 0;
-      const writing = evalValue(benchmark, ["gdpval", "writing", "gdpval-writing"]);
-      if (writing != null) return (intel + scaleEval(writing)) / 2;
-      return intel;
-    }
-    case "reasoning":
-    case "cheap":
-    case "balanced":
-    default:
-      return benchmark.intelligence ?? 0;
-  }
 }
 
 function minMax(values: number[]): number[] {
@@ -142,27 +104,6 @@ function lowerContextTier(a: ContextWindow, b: ContextWindow): ContextWindow {
   return contextTierRank(a) <= contextTierRank(b) ? a : b;
 }
 
-function bumpContextTier(tier: ContextWindow): ContextWindow {
-  const idx = contextTierRank(tier);
-  if (idx < 0 || idx >= CONTEXT_TIERS.length - 1) return tier;
-  return CONTEXT_TIERS[idx + 1]!;
-}
-
-function resolveContextWindow(
-  engineId: RankingEngineId,
-  benchmark: BenchmarkModel | null,
-  customText?: string
-): ContextWindow {
-  let ctx = engineDefaults(engineId).contextWindow;
-  if (benchmark?.contextWindowTokens != null) {
-    ctx = lowerContextTier(ctx, tokensToContextTier(benchmark.contextWindowTokens));
-  }
-  if (customText && /codebase|repo|monorepo|multi-?fichier|large|gros/i.test(customText)) {
-    ctx = bumpContextTier(ctx);
-  }
-  return ctx;
-}
-
 function normalizeArenaScores(rawArena: Array<number | null>, useElo: boolean): number[] {
   if (useElo) {
     const eloValues = rawArena.filter((v): v is number => v != null);
@@ -177,24 +118,6 @@ function normalizeArenaScores(rawArena: Array<number | null>, useElo: boolean): 
   return minMax(present);
 }
 
-function engineDefaults(engineId: RankingEngineId): {
-  contextWindow: ContextWindow;
-  thinkingEffort: ThinkingEffort;
-} {
-  switch (engineId) {
-    case "writing":
-      return { contextWindow: "high", thinkingEffort: "medium" };
-    case "coding":
-      return { contextWindow: "standard", thinkingEffort: "medium" };
-    case "cheap":
-      return { contextWindow: "standard", thinkingEffort: "low" };
-    case "reasoning":
-    case "balanced":
-    default:
-      return { contextWindow: "medium", thinkingEffort: "medium" };
-  }
-}
-
 function matchesReasoningPattern(session: SessionModel, patterns: string[]): boolean {
   const haystack = [session.id, session.name, session.family ?? ""].join(" ").toLowerCase();
   return patterns.some((p) => p.length > 0 && haystack.includes(p.toLowerCase()));
@@ -206,15 +129,31 @@ function bumpThinking(effort: ThinkingEffort): ThinkingEffort {
   return THINKING_LEVELS[idx + 1];
 }
 
+function resolveContextWindow(
+  categoryId: TaskCategoryId,
+  complexity: ComplexityLevel,
+  benchmark: BenchmarkModel | null
+): ContextWindow {
+  let ctx = resolveCategoryDefaults(categoryId, complexity).contextWindow;
+  if (benchmark?.contextWindowTokens != null) {
+    ctx = lowerContextTier(ctx, tokensToContextTier(benchmark.contextWindowTokens));
+  }
+  return ctx;
+}
+
 function buildRationale(
-  weights: RankingWeights,
   breakdown: Recommendation["breakdown"],
   blendedPricePer1M: number | null
 ): string {
   const factors: Array<{ label: string; contribution: number }> = [
-    { label: "task fit", contribution: weights.taskFit * breakdown.taskFit },
-    { label: "Arena rank", contribution: weights.arena * breakdown.arena },
-    { label: "cost efficiency", contribution: weights.cost * breakdown.cost },
+    {
+      label: "category fit",
+      contribution: CATEGORY_SCORE_WEIGHT * breakdown.categoryFit,
+    },
+    {
+      label: "complexity fit",
+      contribution: COMPLEXITY_SCORE_WEIGHT * breakdown.complexityFit,
+    },
   ];
   factors.sort((a, b) => b.contribution - a.contribution);
   const top = factors.filter((f) => f.contribution > 0).slice(0, 2);
@@ -239,66 +178,15 @@ function costTierFromPrice(price: number | null, prices: number[]): Recommendati
   return "medium";
 }
 
-/**
- * Absolute cost efficiency in [0, 1] from blended $/1M.
- * Uses a fixed log scale so $0.24 vs $8 is a meaningful gap, not a forced 1.0 vs 0.0.
- */
-export function absoluteCostScore(pricePer1M: number): number {
-  if (!Number.isFinite(pricePer1M) || pricePer1M <= 0) return 0.5;
-  const lo = Math.log(COST_PRICE_FLOOR);
-  const hi = Math.log(COST_PRICE_CEILING);
-  const t = (Math.log(pricePer1M) - lo) / (hi - lo);
-  const clamped = Math.min(1, Math.max(0, t));
-  return 1 - clamped;
-}
-
-export function resolveEngineWeights(
-  engineId: RankingEngineId,
-  base: RankingWeights
-): RankingWeights {
-  switch (engineId) {
-    case "writing":
-      return {
-        taskFit: base.taskFit + 0.05,
-        arena: base.arena,
-        cost: Math.max(0.15, base.cost - 0.05),
-      };
-    case "coding":
-      return {
-        taskFit: base.taskFit,
-        arena: Math.max(0.15, base.arena - 0.05),
-        cost: base.cost + 0.05,
-      };
-    case "cheap":
-      return {
-        taskFit: Math.max(0.25, base.taskFit - 0.1),
-        arena: Math.max(0.15, base.arena - 0.05),
-        cost: Number((base.cost + 0.15).toFixed(2)),
-      };
-    case "reasoning":
-    case "balanced":
-    default:
-      return { ...base };
-  }
-}
+export { absoluteCostScore } from "./cost-score";
 
 export function rankRecommendations(input: RankRecommendationsInput): Recommendation[] {
-  const {
-    matched,
-    arena,
-    engineId,
-    weights: baseWeights,
-    reasoningModelPatterns,
-    customText,
-    limit,
-  } = input;
-  const weights = resolveEngineWeights(engineId, baseWeights);
+  const { matched, arena, categoryId, complexity, reasoningModelPatterns, limit } = input;
+
   const arenaByKey = buildArenaLookup(arena);
   const useElo = arena.some((e) => e.score != null);
 
   const withBenchmark = matched.filter((m) => !isWeakMatch(m) && m.benchmark);
-  const rawTaskFits = withBenchmark.map((m) => rawTaskFit(m.benchmark!, engineId));
-  const normTaskFits = minMax(rawTaskFits);
 
   const arenaEligible = withBenchmark.map((m) =>
     findArenaEntry(m.session, m.benchmark, arenaByKey)
@@ -306,12 +194,23 @@ export function rankRecommendations(input: RankRecommendationsInput): Recommenda
   const rawArena = withBenchmark.map((_, i) => rawArenaScore(arenaEligible[i], arena, useElo));
   const normArena = normalizeArenaScores(rawArena, useElo);
 
+  const rawCategoryPillar = withBenchmark.map((m, i) => {
+    const cap = rawCategoryFit(m.benchmark!, categoryId);
+    const arenaNorm = Number.isFinite(normArena[i]) ? (normArena[i] ?? 0) : 0;
+    return blendCategoryPillar(cap, arenaNorm);
+  });
+  const normCategory = minMax(rawCategoryPillar);
+
+  const rawComplexity = withBenchmark.map((m) => rawComplexityFit(m.benchmark!, complexity));
+  const normComplexity = minMax(rawComplexity);
+
   const pricesAmongMatched = withBenchmark
     .map((m) => m.benchmark!.blendedPricePer1M)
     .filter((p): p is number => p != null && p > 0 && Number.isFinite(p));
 
   const scoredMatched: Recommendation[] = withBenchmark.map((m, i) => {
-    const taskFit = Number.isFinite(normTaskFits[i]) ? (normTaskFits[i] ?? 0) : 0;
+    const categoryFit = Number.isFinite(normCategory[i]) ? (normCategory[i] ?? 0) : 0;
+    const complexityFit = Number.isFinite(normComplexity[i]) ? (normComplexity[i] ?? 0) : 0;
     const arenaNorm = Number.isFinite(normArena[i]) ? (normArena[i] ?? 0) : 0;
     const price = m.benchmark!.blendedPricePer1M;
     const cost =
@@ -320,9 +219,9 @@ export function rankRecommendations(input: RankRecommendationsInput): Recommenda
       m.benchmark!.blendedPricePer1M != null && Number.isFinite(m.benchmark!.blendedPricePer1M)
         ? m.benchmark!.blendedPricePer1M
         : null;
-    const breakdown = { taskFit, arena: arenaNorm, cost };
-    const score = weights.taskFit * taskFit + weights.arena * arenaNorm + weights.cost * cost;
-    const defaults = engineDefaults(engineId);
+    const breakdown = { categoryFit, complexityFit, arena: arenaNorm, cost };
+    const score = CATEGORY_SCORE_WEIGHT * categoryFit + COMPLEXITY_SCORE_WEIGHT * complexityFit;
+    const defaults = resolveCategoryDefaults(categoryId, complexity);
     let thinkingEffort = defaults.thinkingEffort;
     if (matchesReasoningPattern(m.session, reasoningModelPatterns)) {
       thinkingEffort = bumpThinking(thinkingEffort);
@@ -331,9 +230,9 @@ export function rankRecommendations(input: RankRecommendationsInput): Recommenda
       sessionModel: m.session,
       score: Number.isFinite(score) ? score : 0,
       breakdown,
-      contextWindow: resolveContextWindow(engineId, m.benchmark!, customText),
+      contextWindow: resolveContextWindow(categoryId, complexity, m.benchmark!),
       thinkingEffort,
-      rationale: buildRationale(weights, breakdown, blendedPricePer1M),
+      rationale: buildRationale(breakdown, blendedPricePer1M),
       badges: m.badges.filter(
         (b): b is "matched" | "weak" | "enterprise" =>
           b === "matched" || b === "weak" || b === "enterprise"
@@ -353,18 +252,18 @@ export function rankRecommendations(input: RankRecommendationsInput): Recommenda
     .sort((a, b) => a.session.name.localeCompare(b.session.name));
 
   const scoredWeak: Recommendation[] = weakModels.map((m, i) => {
-    const defaults = engineDefaults(engineId);
+    const defaults = resolveCategoryDefaults(categoryId, complexity);
     let thinkingEffort = defaults.thinkingEffort;
     if (matchesReasoningPattern(m.session, reasoningModelPatterns)) {
       thinkingEffort = bumpThinking(thinkingEffort);
     }
-    const breakdown = { taskFit: 0, arena: 0, cost: 0 };
+    const breakdown = { categoryFit: 0, complexityFit: 0, arena: 0, cost: 0 };
     const score = scoredMatched.length > 0 ? worstMatchedScore - WEAK_SCORE_OFFSET - i * 1e-6 : 0;
     return {
       sessionModel: m.session,
       score,
       breakdown,
-      contextWindow: resolveContextWindow(engineId, m.benchmark, customText),
+      contextWindow: resolveContextWindow(categoryId, complexity, m.benchmark),
       thinkingEffort,
       rationale: "Weak match; no reliable benchmark link.",
       badges: m.badges.filter(
@@ -381,11 +280,6 @@ export function rankRecommendations(input: RankRecommendationsInput): Recommenda
   return selectRecommendations(ranked, limit);
 }
 
-/**
- * Keep the best overall #1, but try to surface at least one cheaper matched
- * alternative in the top 3 so premium models do not monopolize every slot.
- * Final order stays score-descending among the selected three.
- */
 export function diversifyTop3(ranked: Recommendation[]): Recommendation[] {
   if (ranked.length <= 3) return ranked.slice(0, 3);
   const primary = ranked[0]!;
@@ -411,10 +305,6 @@ export function diversifyTop3(ranked: Recommendation[]): Recommendation[] {
   return ranked.filter((r) => chosen.has(r.sessionModel.id)).slice(0, 3);
 }
 
-/**
- * Keep the diversified top 3, then append later ranked models up to the limit.
- * An omitted or invalid limit stays at 3.
- */
 export function selectRecommendations(ranked: Recommendation[], limit?: number): Recommendation[] {
   const count = clampRecommendationCount(limit);
   const top = diversifyTop3(ranked);

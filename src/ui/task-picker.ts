@@ -1,32 +1,31 @@
 import * as vscode from "vscode";
 import type { Messages } from "../i18n/types";
-import { classifyOther } from "../task/classify-other";
-import { engineForPreset, TASK_PRESETS } from "../task/presets";
-import type { RankingEngineId, TaskPresetId } from "../types";
+import { COMPLEXITY_LEVELS, TASK_CATEGORIES } from "../task/categories";
+import type { ComplexityLevel, TaskCategoryId } from "../types";
 
-type PresetQuickPickItem = vscode.QuickPickItem & { presetId: TaskPresetId };
+type CategoryQuickPickItem = vscode.QuickPickItem & { categoryId: TaskCategoryId };
+type ComplexityQuickPickItem = vscode.QuickPickItem & { complexity: ComplexityLevel };
 
 export async function pickTask(
   messages: Messages
-): Promise<{ presetId: TaskPresetId; engineId: RankingEngineId; customText?: string } | undefined> {
-  const preset = await vscode.window.showQuickPick<PresetQuickPickItem>(
-    TASK_PRESETS.map((p) => ({ label: messages.task.presets[p.id], presetId: p.id })),
-    { placeHolder: messages.task.placeholder }
+): Promise<{ categoryId: TaskCategoryId; complexity: ComplexityLevel } | undefined> {
+  const category = await vscode.window.showQuickPick<CategoryQuickPickItem>(
+    TASK_CATEGORIES.map((c) => ({
+      label: messages.task.categories[c.id],
+      categoryId: c.id,
+    })),
+    { placeHolder: messages.task.categoryPlaceholder }
   );
-  if (!preset) return undefined;
+  if (!category) return undefined;
 
-  if (preset.presetId !== "other") {
-    return { presetId: preset.presetId, engineId: engineForPreset(preset.presetId) };
-  }
+  const complexityPick = await vscode.window.showQuickPick<ComplexityQuickPickItem>(
+    COMPLEXITY_LEVELS.map((c) => ({
+      label: messages.task.complexity[c.id],
+      complexity: c.id,
+    })),
+    { placeHolder: messages.task.complexityPlaceholder }
+  );
+  if (!complexityPick) return undefined;
 
-  const text = await vscode.window.showInputBox({
-    prompt: messages.task.otherPrompt,
-    placeHolder: messages.task.otherPlaceholder,
-  });
-  if (text === undefined) return undefined;
-
-  const trimmed = text.trim();
-  if (!trimmed) return undefined;
-
-  return { presetId: "other", engineId: classifyOther(trimmed), customText: trimmed };
+  return { categoryId: category.categoryId, complexity: complexityPick.complexity };
 }

@@ -1,4 +1,4 @@
-import type { TaskPresetId } from "../types";
+import type { ComplexityLevel, TaskCategoryId } from "../types";
 
 export type ContextTier = "standard" | "medium" | "high";
 export type ThinkingTier = "off" | "low" | "medium" | "high";
@@ -33,10 +33,11 @@ export interface SentenceFragments {
 
 export interface Messages {
   task: {
-    placeholder: string;
-    presets: Record<TaskPresetId, string>;
-    otherPrompt: string;
-    otherPlaceholder: string;
+    categoryPlaceholder: string;
+    complexityPlaceholder: string;
+    categories: Record<TaskCategoryId, string>;
+    complexity: Record<ComplexityLevel, string>;
+    taskLabel: (category: string, complexity: string) => string;
   };
   recommendations: {
     placeholder: string;

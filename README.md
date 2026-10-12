@@ -24,10 +24,10 @@ You either burn money on a frontier model for trivial work, or save pennies and 
 
 ## What you get
 
-Pick a task, get your top 3:
+Pick a **category** and **complexity**, get your top 3:
 
 <p align="center">
-  <img src="media/demo.gif" alt="Task Model Advisor: pick a task, get the top 3 models with context window, thinking effort and price" width="720" />
+  <img src="media/demo.gif" alt="Task Model Advisor: pick category and complexity, get the top 3 models with context window, thinking effort and price" width="720" />
 </p>
 
 <p align="center"><em>Illustrative flow. Real results depend on your session models and live benchmark data.</em></p>
@@ -36,15 +36,15 @@ Each recommendation shows the **model**, **context window tier**, and **thinking
 
 ## Features
 
-|                              |                                                                                                                                                                                                                                                                                                          |
-| ---------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 🎯 **Task-aware**            | Eight presets — write/edit code, debug, refactor, code review, specs, user stories, tests, and quick/cheap tasks — plus **Other** (_Autre_ in French) for free-form tasks detected locally. Ranking uses shared engines (coding, reasoning, writing, cheap, balanced), not a separate formula per label. |
-| 📊 **Live benchmarks**       | [Artificial Analysis](https://artificialanalysis.ai/) intelligence / coding indices and pricing, plus Arena leaderboard rankings.                                                                                                                                                                        |
-| 🔒 **Only what you can use** | Never suggests a model that is not in your current session. No more "great, but I don't have access to it".                                                                                                                                                                                              |
-| 💸 **Cost-aware**            | Frontier models don't win by default: price is part of the score, and a cheaper alternative is surfaced in the top 3 when it makes sense.                                                                                                                                                                |
-| 🧠 **Thinking & context**    | Suggests a thinking effort and context tier per task, bumped for reasoning models and for "big repo" style requests.                                                                                                                                                                                     |
-| ⚡ **One-key workflow**      | `Cmd+Option+R` / `Ctrl+Alt+R`, pick a task, pick a model, done.                                                                                                                                                                                                                                          |
-| 🛟 **Always a fallback**     | If the host refuses to switch models, your full config is on the clipboard as JSON. If Arena is down, ranking continues without it.                                                                                                                                                                      |
+|                              |                                                                                                                                                                                                                                                                           |
+| ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 🎯 **Task-aware**            | Seven capability categories (quick/cheap, analysis & docs, development, testing & review, debugging, architecture, autonomous agent) plus a **complexity** level (basic → expert). Scoring blends category fit (benchmarks + Arena) with complexity (cost vs capability). |
+| 📊 **Live benchmarks**       | [Artificial Analysis](https://artificialanalysis.ai/) intelligence / coding indices and pricing, plus Arena leaderboard rankings.                                                                                                                                         |
+| 🔒 **Only what you can use** | Never suggests a model that is not in your current session. No more "great, but I don't have access to it".                                                                                                                                                               |
+| 💸 **Cost-aware**            | Frontier models don't win by default: price is part of the score, and a cheaper alternative is surfaced in the top 3 when it makes sense.                                                                                                                                 |
+| 🧠 **Thinking & context**    | Suggests thinking effort and context tier from category + complexity, bumped for reasoning-model name patterns.                                                                                                                                                           |
+| ⚡ **One-key workflow**      | `Cmd+Option+R` / `Ctrl+Alt+R`, pick category + complexity, pick a model, done.                                                                                                                                                                                            |
+| 🛟 **Always a fallback**     | If the host refuses to switch models, your full config is on the clipboard as JSON. If Arena is down, ranking continues without it.                                                                                                                                       |
 
 ## Install
 
@@ -72,7 +72,7 @@ Each recommendation shows the **model**, **context window tier**, and **thinking
 - Command Palette → **Task Model Advisor: Recommend a model for this task**
 - or press `Cmd+Option+R` (macOS) · `Ctrl+Alt+R` (Windows / Linux)
 
-**3. Pick and apply.** Choose a task, choose one of the top 3, then:
+**3. Pick and apply.** Choose a **work category**, then **complexity**, then one of the top 3:
 
 | Action                 | What it does                                                                                                   |
 | ---------------------- | -------------------------------------------------------------------------------------------------------------- |
@@ -94,8 +94,7 @@ One package, no separate builds.
 ## Privacy
 
 - Network requests happen **only** when you run the command or hit **Refresh** — never in the background.
-- Your custom task text (**Other**) is processed **locally**. It is never sent to Artificial Analysis, Arena or anyone else.
-- No telemetry. No prompt content leaves your machine.
+- No telemetry. Task choices stay on your machine; only benchmark APIs are called when you run the command or refresh.
 - Each key only goes to its own service: the Artificial Analysis key to Artificial Analysis, the Cursor key to the Cursor CLI / API.
 
 ## Troubleshooting

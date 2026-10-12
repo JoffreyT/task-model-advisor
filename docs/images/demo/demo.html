@@ -263,19 +263,25 @@
         </div>`;
       }
 
-      // Labels must match src/i18n/en.ts → task.presets (order = TASK_PRESETS).
-      const presets = (sel) =>
+      // Labels must match src/i18n/en.ts → task.categories / task.complexity (TASK_CATEGORIES order).
+      const categories = (sel) =>
         [
-          "Write / edit code",
-          "Debug / explain a bug",
-          "Refactor / restructure",
-          "Review code / find issues",
-          "Write a spec / technical doc",
-          "Write a user story",
-          "Write tests / scenarios",
-          "Quick task / cheaper model",
-          "Other…",
+          "⚡ Quick / Cheap",
+          "📋 Analysis & Documentation",
+          "💻 Development",
+          "🧪 Testing & Review",
+          "🐞 Debugging",
+          "🏗️ Architecture & Design",
+          "🤖 Autonomous Agent",
         ]
+          .map(
+            (l, i) =>
+              `<div class="item ${i === sel ? "sel" : ""}"><div class="row"><span>${l}</span></div></div>`
+          )
+          .join("");
+
+      const complexity = (sel) =>
+        ["○ Basic", "○ Intermediate", "○ Advanced", "○ Expert"]
           .map(
             (l, i) =>
               `<div class="item ${i === sel ? "sel" : ""}"><div class="row"><span>${l}</span></div></div>`
@@ -328,29 +334,34 @@
       const frames = [
         // 0
         { cap: "Press ⌘⌥R — or open the Command Palette", html: palette("Task Mod", true) },
-        // 1 — select "Write a spec / technical doc" (matches editor backdrop)
+        // 1 — 📋 Analysis & Documentation
         {
-          cap: "Pick the task you are about to run",
-          html: picker("What kind of task?", presets(4)),
+          cap: "Pick the kind of work",
+          html: picker("What kind of work?", categories(1)),
         },
-        // 2
+        // 2 — ○ Intermediate
+        {
+          cap: "How complex is the task?",
+          html: picker("How complex is the task?", complexity(1)),
+        },
+        // 3
         {
           cap: "Live benchmarks + the models you can actually select",
           html: toast("⟳", "info", "Task Model Advisor", "", true),
         },
-        // 3
+        // 4
         {
           cap: "Your top 3 — model, context, thinking effort, price",
           html: picker("Choose a recommendation", recs(0)),
         },
-        // 4
+        // 5
         {
           cap: "Your top 3 — model, context, thinking effort, price",
           html: picker("Choose a recommendation", recs(2)),
         },
-        // 5
-        { cap: "Apply, copy, or refresh", html: picker("Action", actions(0)) },
         // 6
+        { cap: "Apply, copy, or refresh", html: picker("Action", actions(0)) },
+        // 7
         {
           cap: "Done — config applied or copied to your clipboard",
           html: toast(

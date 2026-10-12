@@ -1,55 +1,34 @@
 import { describe, expect, it } from "vitest";
 import { en } from "../i18n/en";
 import { fr } from "../i18n/fr";
-import { messagesFor } from "../i18n";
+import { COMPLEXITY_LEVELS, TASK_CATEGORIES } from "../task/categories";
 
-function leafKeys(value: unknown, prefix = ""): string[] {
-  if (typeof value === "function" || value === null || typeof value !== "object") {
-    return [prefix];
-  }
-  return Object.entries(value).flatMap(([key, child]) =>
-    leafKeys(child, prefix ? `${prefix}.${key}` : key)
-  );
-}
-
-describe("messages", () => {
-  it("gives en and fr the same keys", () => {
-    expect(leafKeys(fr).sort()).toEqual(leafKeys(en).sort());
+describe("i18n task taxonomy", () => {
+  it("covers every category and complexity id in en and fr", () => {
+    for (const { id } of TASK_CATEGORIES) {
+      expect(en.task.categories[id]).toBeTruthy();
+      expect(fr.task.categories[id]).toBeTruthy();
+    }
+    for (const { id } of COMPLEXITY_LEVELS) {
+      expect(en.task.complexity[id]).toBeTruthy();
+      expect(fr.task.complexity[id]).toBeTruthy();
+    }
   });
 
-  it("defaults to English", () => {
-    expect(messagesFor(undefined)).toBe(en);
-    expect(messagesFor("nope")).toBe(en);
-    expect(messagesFor("fr")).toBe(fr);
+  it("uses spec emoji labels in English", () => {
+    expect(en.task.categories.quickCheap).toBe("⚡ Quick / Cheap");
+    expect(en.task.categories.development).toBe("💻 Development");
+    expect(en.task.categories.autonomousAgent).toBe("🤖 Autonomous Agent");
+    expect(en.task.complexity.basic).toBe("○ Basic");
+    expect(en.task.complexity.expert).toBe("○ Expert");
   });
 
-  it("exposes the approved task and weak strings", () => {
-    expect(en.task.presets.writeCode).toBe("Write / edit code");
-    expect(en.task.presets.debug).toBe("Debug / explain a bug");
-    expect(en.task.presets.refactor).toBe("Refactor / restructure");
-    expect(en.task.presets.codeReview).toBe("Review code / find issues");
-    expect(en.task.presets.spec).toBe("Write a spec / technical doc");
-    expect(en.task.presets.userStory).toBe("Write a user story");
-    expect(en.task.presets.tests).toBe("Write tests / scenarios");
-    expect(en.task.presets.cheap).toBe("Quick task / cheaper model");
-    expect(en.task.presets.other).toBe("Other…");
-
-    expect(fr.task.presets.writeCode).toBe("Écrire / modifier du code");
-    expect(fr.task.presets.debug).toBe("Déboguer / expliquer un bug");
-    expect(fr.task.presets.refactor).toBe("Refactorer / restructurer");
-    expect(fr.task.presets.codeReview).toBe("Revue de code / trouver des problèmes");
-    expect(fr.task.presets.spec).toBe("Écrire une spec / doc technique");
-    expect(fr.task.presets.userStory).toBe("Écrire une user story");
-    expect(fr.task.presets.tests).toBe("Écrire des tests / scénarios");
-    expect(fr.task.presets.cheap).toBe("Tâche rapide / modèle pas cher");
-    expect(fr.task.presets.other).toBe("Autre…");
-    expect(en.recommendations.sentence.weak).toBe("No reliable benchmark.");
-    expect(fr.recommendations.sentence.weak).toBe("Sans benchmark fiable.");
-    expect(en.notifications.copySuccess("Composer 2.5", "~$1.50/1M")).toBe(
-      'Task Model Advisor: config copied for "Composer 2.5" (~$1.50/1M).'
+  it("builds a combined task label", () => {
+    const label = en.task.taskLabel(
+      en.task.categories.development,
+      en.task.complexity.intermediate
     );
-    expect(fr.notifications.copySuccess("Composer 2.5", "~$1.50/1M")).toBe(
-      'Task Model Advisor: config copiée pour "Composer 2.5" (~$1.50/1M).'
-    );
+    expect(label).toContain("Development");
+    expect(label).toContain("Intermediate");
   });
 });

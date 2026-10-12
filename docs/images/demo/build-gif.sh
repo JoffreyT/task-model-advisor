@@ -11,7 +11,7 @@ TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"' EXIT
 
 # Seconds each frame stays on screen (index = ?f=N in demo.html).
-DURATIONS=(1.6 1.6 1.4 2.2 2.2 1.6 2.8)
+DURATIONS=(1.6 1.6 1.4 1.4 2.2 2.2 1.6 2.8)
 
 : >"$TMP/list.txt"
 for i in "${!DURATIONS[@]}"; do

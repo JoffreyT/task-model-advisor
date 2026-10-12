@@ -1,15 +1,13 @@
-export type TaskPresetId =
-  | "writeCode"
-  | "debug"
-  | "refactor"
-  | "codeReview"
-  | "spec"
-  | "userStory"
-  | "tests"
-  | "cheap"
-  | "other";
+export type TaskCategoryId =
+  | "quickCheap"
+  | "analysisDoc"
+  | "development"
+  | "testingReview"
+  | "debugging"
+  | "architectureDesign"
+  | "autonomousAgent";
 
-export type RankingEngineId = "coding" | "reasoning" | "writing" | "cheap" | "balanced";
+export type ComplexityLevel = "basic" | "intermediate" | "advanced" | "expert";
 
 export interface SessionModel {
   id: string;
@@ -40,7 +38,12 @@ export type MatchQuality = "matched" | "weak" | "enterprise";
 export interface Recommendation {
   sessionModel: SessionModel;
   score: number;
-  breakdown: { taskFit: number; arena: number; cost: number };
+  breakdown: {
+    categoryFit: number;
+    complexityFit: number;
+    arena: number;
+    cost: number;
+  };
   contextWindow: "standard" | "medium" | "high";
   thinkingEffort: "off" | "low" | "medium" | "high";
   rationale: string;
@@ -65,7 +68,7 @@ export interface AdvisorConfig {
   artificialAnalysis: { apiKey: string };
   arena: {
     source: ArenaSource;
-    categories: Record<RankingEngineId, string>;
+    categories: Record<TaskCategoryId, string>;
   };
   ranking: { weights: RankingWeights };
   modelAliases: Record<string, string>;

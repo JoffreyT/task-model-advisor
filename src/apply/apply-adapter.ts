@@ -1,6 +1,6 @@
 import * as vscode from "vscode";
 import type { Messages } from "../i18n/types";
-import type { AdvisorConfig, RankingEngineId, Recommendation, TaskPresetId } from "../types";
+import type { AdvisorConfig, ComplexityLevel, Recommendation, TaskCategoryId } from "../types";
 import {
   buildSwitchParams,
   candidateModelIds,
@@ -16,8 +16,8 @@ export interface ClipboardPayload {
   modelId: string;
   contextWindow: Recommendation["contextWindow"];
   thinkingEffort: Recommendation["thinkingEffort"];
-  task: TaskPresetId;
-  engine: RankingEngineId;
+  category: TaskCategoryId;
+  complexity: ComplexityLevel;
   rank: number;
   scoreBreakdown: Recommendation["breakdown"];
   blendedPricePer1M: number | null;
@@ -26,8 +26,8 @@ export interface ClipboardPayload {
 
 export function toClipboardPayload(
   rec: Recommendation,
-  presetId: TaskPresetId,
-  engineId: RankingEngineId,
+  categoryId: TaskCategoryId,
+  complexity: ComplexityLevel,
   rank = 1
 ): ClipboardPayload {
   return {
@@ -35,8 +35,8 @@ export function toClipboardPayload(
     modelId: rec.sessionModel.id,
     contextWindow: rec.contextWindow,
     thinkingEffort: rec.thinkingEffort,
-    task: presetId,
-    engine: engineId,
+    category: categoryId,
+    complexity,
     rank,
     scoreBreakdown: { ...rec.breakdown },
     blendedPricePer1M: rec.blendedPricePer1M,
@@ -198,12 +198,12 @@ function successMessage(
 export async function applyRecommendation(
   rec: Recommendation,
   strategy: AdvisorConfig["applyStrategy"],
-  presetId: TaskPresetId,
-  engineId: RankingEngineId,
+  categoryId: TaskCategoryId,
+  complexity: ComplexityLevel,
   messages: Messages,
   rank = 1
 ): Promise<{ applied: boolean; detail: string }> {
-  const payload = toClipboardPayload(rec, presetId, engineId, rank);
+  const payload = toClipboardPayload(rec, categoryId, complexity, rank);
 
   try {
     await writeClipboardPayload(payload);
@@ -244,13 +244,13 @@ export async function applyRecommendation(
 
 export async function copyRecommendationToClipboard(
   rec: Recommendation,
-  presetId: TaskPresetId,
-  engineId: RankingEngineId,
+  categoryId: TaskCategoryId,
+  complexity: ComplexityLevel,
   messages: Messages,
   rank = 1
 ): Promise<void> {
   try {
-    await writeClipboardPayload(toClipboardPayload(rec, presetId, engineId, rank));
+    await writeClipboardPayload(toClipboardPayload(rec, categoryId, complexity, rank));
     await vscode.window.showInformationMessage(
       messages.notifications.copySuccess(
         rec.sessionModel.name,

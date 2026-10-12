@@ -60,28 +60,28 @@ npm run package   # → task-model-advisor-<version>.vsix
               └─ session models       (vscode.lm → Cursor CLI → Cursor API)
 ```
 
-Orchestrated by `runRecommendCommand` in `src/commands/recommend.ts`. **Refresh** loops back to the fetch step with the same task. `pickTask` returns a **preset label** id (`TaskPresetId`); ranking uses the resolved **engine** (`RankingEngineId`) from `engineForPreset` or `classifyOther`.
+Orchestrated by `runRecommendCommand` in `src/commands/recommend.ts`. **Refresh** loops back to the fetch step with the same task. `pickTask` returns `{ categoryId, complexity }` after two QuickPicks (category, then complexity).
 
 ### Module map
 
-| Path                                   | Role                                                           |
-| -------------------------------------- | -------------------------------------------------------------- |
-| `src/extension.ts`                     | `activate`: registers the command, then seeds settings         |
-| `src/seed-settings.ts`                 | Writes unset `taskModelAdvisor.*` keys to User settings        |
-| `src/config.ts`                        | Builds `AdvisorConfig` from the two API keys + constants       |
-| `src/constants.ts`                     | Every tunable that is **not** a user setting                   |
-| `src/commands/recommend.ts`            | The end-to-end flow                                            |
-| `src/task/presets.ts`                  | QuickPick **labels** (8 tasks + Autre) and preset → engine map |
-| `src/task/classify-other.ts`           | Autre free text → **ranking engine** (regex, no LLM)           |
-| `src/providers/artificial-analysis.ts` | AA Data API client and mapping to `BenchmarkModel`             |
-| `src/providers/arena.ts`               | Arena leaderboard client (wulong mirror)                       |
-| `src/host/model-discovery.ts`          | Session models: `vscode.lm`, then Cursor fallbacks             |
-| `src/host/cursor-model-discovery.ts`   | `agent --list-models` and `GET /v1/models`                     |
-| `src/matching/`                        | Name normalization, similarity, session ↔ benchmark matching   |
-| `src/ranking/task-ranker.ts`           | **Engine** scoring, context/thinking heuristics, top-3         |
-| `src/ranking/eval-*.ts`                | Synthetic catalog and matrix for tuning                        |
-| `src/apply/`                           | Clipboard payload and Cursor model switching                   |
-| `src/ui/`                              | QuickPick UI and score formatting                              |
+| Path                                   | Role                                                         |
+| -------------------------------------- | ------------------------------------------------------------ |
+| `src/extension.ts`                     | `activate`: registers the command, then seeds settings       |
+| `src/seed-settings.ts`                 | Writes unset `taskModelAdvisor.*` keys to User settings      |
+| `src/config.ts`                        | Builds `AdvisorConfig` from the two API keys + constants     |
+| `src/constants.ts`                     | Every tunable that is **not** a user setting                 |
+| `src/commands/recommend.ts`            | The end-to-end flow                                          |
+| `src/task/categories.ts`               | Ordered category and complexity ids for QuickPick            |
+| `src/ranking/category-fit.ts`          | Per-category benchmark blends and complexity pillar          |
+| `src/providers/artificial-analysis.ts` | AA Data API client and mapping to `BenchmarkModel`           |
+| `src/providers/arena.ts`               | Arena leaderboard client (wulong mirror)                     |
+| `src/host/model-discovery.ts`          | Session models: `vscode.lm`, then Cursor fallbacks           |
+| `src/host/cursor-model-discovery.ts`   | `agent --list-models` and `GET /v1/models`                   |
+| `src/matching/`                        | Name normalization, similarity, session ↔ benchmark matching |
+| `src/ranking/task-ranker.ts`           | 70/30 category + complexity scoring, context/thinking, top-3 |
+| `src/ranking/eval-*.ts`                | Synthetic catalog and matrix for tuning                      |
+| `src/apply/`                           | Clipboard payload and Cursor model switching                 |
+| `src/ui/`                              | QuickPick UI and score formatting                            |
 
 ### Settings vs constants
 
@@ -122,42 +122,22 @@ Each session model is linked to a benchmark model:
 
 ### Ranking
 
-`final score = wTaskFit × taskFit + wArena × arena + wCost × cost`, each component in [0, 1].
+`final = 0.70 × norm(categoryPillar) + 0.30 × norm(complexityPillar)` (min-max per session).
 
-**Task fit** (min-max normalized across matched models):
+**Category pillar**: `rawCategoryFit(categoryId)` (see `src/ranking/category-fit.ts`) blended with normalized Arena (`CATEGORY_ARENA_BLEND` = 0.20). Arena uses Elo min-max when scores exist, else rank-based `1 - (rank-1)/n`.
 
-| Engine                           | Raw signal                                                                |
-| -------------------------------- | ------------------------------------------------------------------------- |
-| `coding`                         | coding index × 0.7 + LiveCodeBench × 0.3 (falls back to whichever exists) |
-| `writing`                        | mean of intelligence index and GDPval / writing eval when present         |
-| `reasoning`, `cheap`, `balanced` | intelligence index                                                        |
+**Complexity pillar**: mix of `absoluteCostScore(price)` and `rawCapabilityBlend` (intelligence, coding, agentic, SWE-like keys). Cost weight decreases from basic (0.75) to expert (0.05).
 
-**Arena**: if any entry has an Elo score, Elo is min-max normalized; otherwise `1 - (rank - 1) / n`. No entry → 0.
-
-**Cost**: absolute log scale, not min-max, so a $0.24 model and a $8 model are meaningfully apart:
-
-```text
-cost = 1 - clamp( (ln(price) - ln(0.10)) / (ln(15) - ln(0.10)) )     unknown price → 0.5
-```
-
-**Weights**: base `0.45 / 0.25 / 0.30` (`RANKING_WEIGHTS`), tilted per engine in `resolveEngineWeights`:
-
-| Engine                  | taskFit | arena | cost |
-| ----------------------- | ------- | ----- | ---- |
-| `writing`               | 0.50    | 0.25  | 0.25 |
-| `coding`                | 0.45    | 0.20  | 0.35 |
-| `cheap`                 | 0.35    | 0.20  | 0.45 |
-| `reasoning`, `balanced` | 0.45    | 0.25  | 0.30 |
-
-Cost weight tuning rule of thumb: too high → cheap flash models dominate; too low → expensive Opus everywhere.
+**Breakdown** (UI): `categoryFit`, `complexityFit`, `arena`, `cost` — the first two are the normalized pillars; arena/cost are retained for explanations and `diversifyTop3`.
 
 **Output**
 
 - **Weak** models are appended after all matched ones, with a zeroed breakdown.
 - `diversifyTop3` keeps the #1 and tries to include one cheaper matched alternative (cost score ≥ 0.35 and price ≤ 55% of the leader's, or a clearly better cost score when a price is unknown). The final three are ordered by score.
-- **Context window**: engine default (`writing` high, `coding` standard, `cheap` standard, `reasoning` and `balanced` medium), capped by the model's real context size (< 48k standard, < 100k medium, else high), bumped one tier when custom text mentions codebase / repo / monorepo / multi-fichier / large / gros.
-- **Thinking effort**: engine default (`writing` medium, `coding` medium, `cheap` low, `reasoning` and `balanced` medium), bumped one level for reasoning models (`REASONING_MODEL_PATTERNS`: `o1`, `o3`, `deepseek-r1`, `extended`).
-- The UI row shows `score · fit · arena · cost`.
+- **Context / thinking**: `resolveCategoryDefaults(categoryId, complexity)`, capped by model context tokens, bumped for reasoning models (`REASONING_MODEL_PATTERNS`).
+- The UI row shows `score · cat · cx · arena · cost`.
+
+Spec: [capability taxonomy](docs/superpowers/specs/2026-10-12-capability-taxonomy-design.md).
 
 ### Applying a recommendation
 
@@ -169,16 +149,16 @@ Every **Validate** and **Copy** writes this to the clipboard first:
   "modelId": "claude-opus-5-5-medium",
   "contextWindow": "high",
   "thinkingEffort": "medium",
-  "task": "spec",
-  "engine": "writing",
+  "category": "analysisDoc",
+  "complexity": "intermediate",
   "rank": 1,
-  "scoreBreakdown": { "taskFit": 1, "arena": 1, "cost": 0.13 },
+  "scoreBreakdown": { "categoryFit": 1, "complexityFit": 0.8, "arena": 1, "cost": 0.13 },
   "blendedPricePer1M": 8,
   "costTier": "high"
 }
 ```
 
-**Breaking change (pre-Marketplace):** clipboard `task` values are **preset** ids (`spec`, `debug`, `other`, …). Old profile ids such as `pythonScript` and `testScenario` are no longer written. Scripts should read `engine` for ranking semantics and `task` for what the user picked.
+Clipboard uses `category` and `complexity` instead of legacy `task` / `engine` preset ids.
 
 - **VS Code:** nothing else to apply; an info message tells the user what to select.
 - **Cursor (experimental):** `tryApplyCursorModel` probes undocumented commands in order, without checking `getCommands()` (many Cursor actions are filtered from that list):
@@ -192,7 +172,7 @@ Every **Validate** and **Copy** writes this to the clipboard first:
 
 ### Ranking eval matrix
 
-Synthetic catalog (Cursor-like session models + AA/Arena fixtures). Runs matching + ranking for every **ranking engine** (plus extra `balanced` rows with custom text) and prints the top 3 with score breakdowns:
+Synthetic catalog (Cursor-like session models + AA/Arena fixtures). Runs matching + ranking for **category × complexity** scenarios and prints the top 3 with score breakdowns:
 
 ```bash
 npm run eval:ranking
@@ -202,35 +182,28 @@ Edit fixtures in `src/ranking/eval-fixtures.ts` to stress-test scenarios.
 
 ### Common changes
 
-| I want to…                 | Edit                                                                                                  |
-| -------------------------- | ----------------------------------------------------------------------------------------------------- |
-| Change base weights        | `RANKING_WEIGHTS` in `src/constants.ts`, then re-run `npm run eval:ranking`                           |
-| Change per-engine tilt     | `resolveEngineWeights` in `src/ranking/task-ranker.ts`                                                |
-| Map a host model to a slug | `MODEL_ALIASES` in `src/constants.ts`                                                                 |
-| Treat a model as reasoning | `REASONING_MODEL_PATTERNS` in `src/constants.ts`                                                      |
-| Add a new user setting     | `contributes.configuration` in `package.json`, `SETTING_KEYS`, `resolveConfig` (a test checks parity) |
+| I want to…                        | Edit                                                                                                  |
+| --------------------------------- | ----------------------------------------------------------------------------------------------------- |
+| Change base weights               | `RANKING_WEIGHTS` in `src/constants.ts`, then re-run `npm run eval:ranking`                           |
+| Change category/complexity blends | `src/ranking/category-fit.ts`                                                                         |
+| Map a host model to a slug        | `MODEL_ALIASES` in `src/constants.ts`                                                                 |
+| Treat a model as reasoning        | `REASONING_MODEL_PATTERNS` in `src/constants.ts`                                                      |
+| Add a new user setting            | `contributes.configuration` in `package.json`, `SETTING_KEYS`, `resolveConfig` (a test checks parity) |
 
-### Adding a QuickPick preset
+### Adding a task category
 
-1. Add the id to `TaskPresetId` in `src/types.ts`.
-2. Add a row to `TASK_PRESETS` and map it in `PRESET_ENGINE` (`src/task/presets.ts`).
-3. Add en/fr labels in `src/i18n/en.ts` and `src/i18n/fr.ts`.
-4. Do **not** add Arena or ranker branches unless the preset needs a **new** engine (map it to an existing engine instead).
-5. Add tests; eval matrix only needs a change if you add a new engine.
-
-### Adding a ranking engine
-
-1. Add the id to `RankingEngineId` in `src/types.ts`.
-2. Add its Arena category in `ARENA_CATEGORIES` (`src/constants.ts`).
-3. Extend `rawTaskFit`, `engineDefaults`, and `resolveEngineWeights` in `src/ranking/task-ranker.ts`.
-4. Add the engine to `EVAL_ENGINES` in `src/ranking/eval-matrix.ts` and update eval-matrix tests.
-5. Update the ranking tables in this file and run `npm run eval:ranking`.
+1. Add the id to `TaskCategoryId` in `src/types.ts`.
+2. Add a row to `TASK_CATEGORIES` (`src/task/categories.ts`) and Arena mapping in `ARENA_CATEGORIES`.
+3. Extend `rawCategoryFit` and `resolveCategoryDefaults` in `src/ranking/category-fit.ts`.
+4. Add en/fr labels in `src/i18n/en.ts` and `src/i18n/fr.ts`.
+5. Update eval-matrix tests and run `npm run eval:ranking`.
 
 ## Design docs
 
 `docs/superpowers/` holds the design history, newest first:
 
-- Public task presets: [spec](docs/superpowers/specs/2026-10-07-public-task-presets-design.md) · [plan](docs/superpowers/plans/2026-10-07-public-task-presets.md)
+- Capability taxonomy + complexity: [spec](docs/superpowers/specs/2026-10-12-capability-taxonomy-design.md)
+- Public task presets (superseded): [spec](docs/superpowers/specs/2026-10-07-public-task-presets-design.md) · [plan](docs/superpowers/plans/2026-10-07-public-task-presets.md)
 - Seed settings: [spec](docs/superpowers/specs/2026-10-06-seed-default-settings-design.md) · [plan](docs/superpowers/plans/2026-10-06-seed-default-settings.md)
 - Original: [spec](docs/superpowers/specs/2026-03-22-task-model-advisor-design.md) · [plan](docs/superpowers/plans/2026-10-05-task-model-advisor.md)
 
@@ -242,7 +215,7 @@ Edit fixtures in `src/ranking/eval-fixtures.ts` to stress-test scenarios.
 
 Manual verification before release:
 
-- [ ] **1.** Run the command, pick each task preset (8 + Other), and receive up to three recommendations from **session-available models only**.
+- [ ] **1.** Run the command, walk each **category** (7) with at least one **complexity** level, and receive up to three recommendations from **session-available models only**.
 - [ ] **2.** With a valid AA API key and network, recommendations reflect AA pricing/indices and Arena data when the mirror responds.
 - [ ] **3.** With Arena unavailable, recommendations still work with a non-blocking warning.
 - [ ] **4.** **Validate** applies or copies the full configuration without throwing.
@@ -263,7 +236,7 @@ Manual verification before release:
 
 Do not publish until the owner asks. Remaining items typically include:
 
-- `publisher` (`jft63`), `LICENSE` (MIT), `keywords` / `categories`, icon + `galleryBanner`, README `docs/images/demo.gif` set; next: publish
+- `publisher` (`jft63`), `LICENSE` (MIT), `keywords` / `categories`, icon + `galleryBanner`, demo GIFs (`docs/images/demo.gif` + `media/demo.gif`) set; next: publish
 - `LICENSE` file
 - Open VSX / VS Marketplace publish
-- Keep the mock-up `docs/images/demo.gif` in sync with UI labels via `bash docs/images/demo/build-gif.sh` (see `docs/images/README.md`)
+- After UI label changes, rebuild both GIFs: `bash docs/images/demo/build-gif.sh` (see [`docs/images/README.md`](docs/images/README.md))
