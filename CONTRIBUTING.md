@@ -11,6 +11,7 @@ End-user docs live in [README.md](README.md).
 4. [Tuning and extending](#tuning-and-extending)
 5. [Design docs](#design-docs)
 6. [Release](#release)
+7. [Publishing](docs/publishing.md) (Open VSX & VS Marketplace)
 
 ## Development setup
 
@@ -232,11 +233,11 @@ Manual verification before release:
 | **Arena down** (mirror unreachable; mock in tests)     | Warning in UI; ranking continues using Artificial Analysis only.                                                                    |
 | **Empty session model list**                           | Error message; command exits. On Cursor: set `taskModelAdvisor.cursor.apiKey` or run `agent login`. On VS Code: sign in to Copilot. |
 
-### Marketplace (deferred)
+### Publishing registries
 
-Do not publish until the owner asks. Remaining items typically include:
+Step-by-step commands (Open VSX via **`ovsx`**, VS Marketplace via **`vsce`**): **[docs/publishing.md](docs/publishing.md)**.
 
-- `publisher` (`jft63`), `LICENSE` (MIT), `keywords` / `categories`, icon + `galleryBanner`, demo GIFs (`docs/images/demo.gif` + `media/demo.gif`) set; next: publish
-- `LICENSE` file
-- Open VSX / VS Marketplace publish
+Pre-publish metadata checklist:
+
+- `publisher` (`jft63`), `LICENSE` (MIT), `keywords` / `categories`, icon + `galleryBanner`, demo GIFs (`docs/images/demo.gif` + `media/demo.gif`)
 - After UI label changes, rebuild both GIFs: `bash docs/images/demo/build-gif.sh` (see [`docs/images/README.md`](docs/images/README.md))
