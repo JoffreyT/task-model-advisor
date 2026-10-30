@@ -1,94 +1,48 @@
 # Publishing Task Model Advisor
 
-How to ship releases to [Open VSX](https://open-vsx.org) (VSCodium, Gitpod, etc.) and optionally the [Visual Studio Marketplace](https://marketplace.visualstudio.com).
+Two registries, one `.vsix`:
 
-The extension `publisher` in `package.json` must match your registry namespace (`jft63`). Open VSX namespace settings: [jft63](https://open-vsx.org/user-settings/namespaces/jft63).
+| Where it shows up  | Registry                                                          | Command            |
+| ------------------ | ----------------------------------------------------------------- | ------------------ |
+| VS Code Extensions | [Visual Studio Marketplace](https://marketplace.visualstudio.com) | `npm run publish`  |
+| Cursor Extensions  | [Open VSX](https://open-vsx.org) (Cursor reads this registry)     | `npx ovsx publish` |
 
-## Before you publish
+`publisher` in `package.json` is `jft63`. It must match both accounts.
 
-```bash
-npm ci
-npm test
-npm run lint
-```
+## Publish a release
 
-Bump `version` in `package.json` for each new release (registries reject duplicate versions).
-
-## Package a `.vsix`
+Put the tokens in a gitignored `.env` at the repo root (`cp .env.example .env`), then:
 
 ```bash
-npm run package
+python3 scripts/publish.py
 ```
 
-Produces `task-model-advisor-<version>.vsix` in the repo root (`vsce package` + `vscode:prepublish` compile).
+The script reads `.env` when those variables are not already in the shell. A new terminal does not keep `export`s from an older one.
 
-## Open VSX
+The script bumps the patch version (`0.3.0` → `0.3.1`), asks for confirmation, then runs `npm test`, `npm run package`, `npm run publish`, and `npx ovsx publish` on `task-model-advisor-<version>.vsix`. Both registries reject a version that already exists. Pass `--version 0.4.0` to choose the number, or `--no-bump` if `package.json` is already updated. `--yes` skips the prompt.
 
-Open VSX uses the **`ovsx`** CLI ([`ovsx` on npm](https://www.npmjs.com/package/ovsx)), **not** `@open-vsx/cli` (that package does not exist).
-
-### One-time setup
-
-1. Sign in at [open-vsx.org](https://open-vsx.org).
-2. Create a **Personal Access Token**: [Access tokens](https://open-vsx.org/user-settings/tokens) with permission to publish under namespace `jft63`.
-
-Optional: install the CLI as a dev dependency:
+`npm run publish` is `vsce publish` and only uploads to the Marketplace. Cursor reads Open VSX, so the release is missing there until `ovsx` succeeds. If the Marketplace step works and Open VSX fails, do not run `npm run publish` again. Retry only:
 
 ```bash
-npm install -D ovsx
+npx ovsx publish task-model-advisor-<version>.vsix
 ```
 
-### Publish
+Listings:
 
-Create a token at [Access tokens](https://open-vsx.org/user-settings/tokens), then set **`OVSX_PAT`** in your shell (do not commit it):
+- VS Code: `https://marketplace.visualstudio.com/items?itemName=jft63.task-model-advisor`
+- Cursor / Open VSX: `https://open-vsx.org/extension/jft63/task-model-advisor`
+
+## One-time tokens
+
+**VS Code Marketplace** — [publisher management](https://marketplace.visualstudio.com/manage). Create publisher `jft63`, then an Azure DevOps PAT with Marketplace **Manage**. Save it as `VSCE_PAT` in `.env`. `vsce login` also stores this PAT in the macOS keychain (service `vscode-vsce`), which is why `npm run publish` can succeed without the variable.
+
+**Cursor (Open VSX)** — sign in at [open-vsx.org](https://open-vsx.org), then create a token at [Access tokens](https://open-vsx.org/user-settings/tokens). Namespace settings: [jft63](https://open-vsx.org/user-settings/namespaces/jft63). Save it as `OVSX_PAT` in `.env`.
+
+The publisher is `ovsx`, not `@open-vsx/cli`. If the namespace does not exist yet:
 
 ```bash
-export OVSX_PAT="…"
+npx ovsx create-namespace jft63 -p "$OVSX_PAT"
 ```
-
-From the extension root, after tests pass:
-
-```bash
-npm run package
-npx ovsx publish
-```
-
-Or publish an existing `.vsix`:
-
-```bash
-npx ovsx publish task-model-advisor-0.3.0.vsix
-```
-
-After the first successful publish, the listing is typically:
-
-`https://open-vsx.org/extension/jft63/task-model-advisor`
-
-### Updates
-
-1. Increment `version` in `package.json`.
-2. `npm run package`
-3. `export OVSX_PAT="…"` then `npx ovsx publish`.
-
-## Visual Studio Marketplace (separate registry)
-
-`npm run publish` runs **`vsce publish`**, which targets the **Microsoft** Marketplace only. It does **not** upload to Open VSX.
-
-You need a [Microsoft publisher](https://marketplace.visualstudio.com/manage) and an Azure DevOps PAT with Marketplace **Manage** scope. Then:
-
-```bash
-npm run package
-npx vsce publish -p YOUR_AZURE_DEVOPS_PAT
-```
-
-You can publish the same `.vsix` to both Open VSX and the VS Marketplace; each registry has its own token and portal.
-
-## CI (optional)
-
-A common GitHub Actions pattern:
-
-- Store `OVSX_PAT` as a repository secret.
-- On release tag or manual workflow: `npm ci`, `npm test`, `npx ovsx publish`.
-
-This repo does not include that workflow yet; add it when you want automated Open VSX releases.
 
 ## Related
 

@@ -11,7 +11,7 @@ End-user docs live in [README.md](README.md).
 4. [Tuning and extending](#tuning-and-extending)
 5. [Design docs](#design-docs)
 6. [Release](#release)
-7. [Publishing](docs/publishing.md) (Open VSX & VS Marketplace)
+7. [Publishing](docs/publishing.md) (VS Code Marketplace & Cursor / Open VSX)
 
 ## Development setup
 
@@ -92,11 +92,11 @@ On activation, `seedUnsetUserSettings` writes any key that is unset in user, wor
 
 ### Data sources
 
-| Source              | Endpoint                                                                 | Auth                | Used for                                                               |
-| ------------------- | ------------------------------------------------------------------------ | ------------------- | ---------------------------------------------------------------------- |
-| Artificial Analysis | `GET https://artificialanalysis.ai/api/v2/data/llms/models`              | `x-api-key`         | Intelligence / coding index, evaluations, blended $/1M, context tokens |
-| Arena (mirror)      | `GET https://api.wulong.dev/arena-ai-leaderboards/v1/leaderboard?name=…` | none                | Rank and optional Elo score per category                               |
-| Cursor API          | `GET https://api.cursor.com/v1/models`                                   | `Bearer` Cursor key | Session models, last resort on Cursor                                  |
+| Source              | Endpoint                                                                 | Auth                | Used for                                                                                 |
+| ------------------- | ------------------------------------------------------------------------ | ------------------- | ---------------------------------------------------------------------------------------- |
+| Artificial Analysis | `GET https://artificialanalysis.ai/api/v2/language/models/free`          | `x-api-key`         | Intelligence / coding index, evaluations, 3:1 blended $/1M from input+output (paginated) |
+| Arena (mirror)      | `GET https://api.wulong.dev/arena-ai-leaderboards/v1/leaderboard?name=…` | none                | Rank and optional Elo score per category                                                 |
+| Cursor API          | `GET https://api.cursor.com/v1/models`                                   | `Bearer` Cursor key | Session models, last resort on Cursor                                                    |
 
 - AA failures (**missing key, HTTP, timeout, parse**) are fatal: the command shows an error and exits.
 - Arena failures are **non-fatal**: a warning is shown and ranking continues on AA only. Category fallback chain: `hard_prompts` → `text`, `coding` → `code`. A `404` or an empty list moves to the next name.
@@ -235,7 +235,7 @@ Manual verification before release:
 
 ### Publishing registries
 
-Step-by-step commands (Open VSX via **`ovsx`**, VS Marketplace via **`vsce`**): **[docs/publishing.md](docs/publishing.md)**.
+Short procedure (`python3 scripts/publish.py`): **[docs/publishing.md](docs/publishing.md)**.
 
 Pre-publish metadata checklist:
 
