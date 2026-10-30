@@ -9,3 +9,5 @@ coverage/
 !.env.example
 .superpowers/
 **/.DS_Store
+*.pyc
+__pycache__/

@@ -2,7 +2,7 @@
   "name": "task-model-advisor",
   "displayName": "Task Model Advisor",
   "description": "Recommend the best available LLM (model, context, thinking) for a task using live benchmarks.",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "publisher": "jft63",
   "license": "MIT",
   "repository": {
@@ -114,7 +114,7 @@
     "@eslint/js": "^10.0.1",
     "@types/node": "^26.6.4",
     "@types/vscode": "1.125.0",
-    "@vscode/vsce": "^4.0.0",
+    "@vscode/vsce": "^4.1.0",
     "eslint": "^10.12.0",
     "eslint-config-prettier": "^10.1.8",
     "husky": "^9.1.7",

@@ -1,22 +1,30 @@
 {
+  "tier": "free",
+  "intelligence_index_version": 5,
+  "pagination": {
+    "page": 1,
+    "page_size": 200,
+    "total_pages": 1,
+    "has_more": false
+  },
   "data": [
     {
+      "id": "gpt-oss-20b",
       "slug": "gpt-oss-20b",
       "name": "GPT OSS 20B",
-      "creator_slug": "openai",
-      "context_window_tokens": 131072,
+      "model_creator": { "slug": "openai", "name": "OpenAI" },
       "evaluations": {
         "artificial_analysis_intelligence_index": 24.5,
         "artificial_analysis_coding_index": 18.5,
         "artificial_analysis_agentic_index": 27.6
       },
       "pricing": {
-        "price_1m_blended_3_to_1": 0.09,
         "price_1m_input_tokens": 0.06,
-        "price_1m_output_tokens": 0.2
+        "price_1m_output_tokens": 0.18
       }
     },
     {
+      "id": "claude-sonnet-4",
       "slug": "claude-sonnet-4",
       "name": "Claude Sonnet 4",
       "model_creator": { "slug": "anthropic", "name": "Anthropic" },
@@ -26,23 +34,27 @@
         "artificial_analysis_coding_index": 72.1
       },
       "pricing": {
-        "price_1m_blended_3_to_1": 3.0
+        "price_1m_blended_3_to_1": 3.0,
+        "price_1m_input_tokens": 3.0,
+        "price_1m_output_tokens": 15.0
       }
     },
     {
+      "id": "gemini-2-5-flash",
       "slug": "gemini-2-5-flash",
       "name": "Gemini 2.5 Flash",
-      "creator_slug": "google",
-      "context_window_tokens": 1000000,
+      "model_creator": { "slug": "google", "name": "Google" },
       "evaluations": {
         "artificial_analysis_intelligence_index": 55.0,
         "artificial_analysis_coding_index": 48.3
       },
       "pricing": {
-        "price_1m_blended_3_to_1": 0.15
+        "price_1m_input_tokens": 0.15,
+        "price_1m_output_tokens": 0.6
       }
     },
     {
+      "id": "partial-metrics",
       "slug": "partial-metrics",
       "name": "Partial Metrics Model",
       "evaluations": {

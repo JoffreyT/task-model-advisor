@@ -16,21 +16,23 @@ export class ArtificialAnalysisError extends Error {
 }
 
 /**
- * Artificial Analysis Data API — LLM model list.
+ * Artificial Analysis Data API — language model list (documented V2 Free contract).
  *
- * GET https://artificialanalysis.ai/api/v2/data/llms/models
- * Auth: `x-api-key: <key>` (documented at https://artificialanalysis.ai/data-api/docs).
- * Free-tier list shape is also documented for GET /api/v2/language/models/free; field names align.
+ * GET https://artificialanalysis.ai/api/v2/language/models/free?page=N
+ * Auth: `x-api-key: <key>` (https://artificialanalysis.ai/data-api/docs).
+ * Accepts any valid key. Paginate with `pagination.has_more`.
  *
  * Mapping (defensive):
  * - List: `data[]`, top-level array, or `models[]`
  * - slug, name → BenchmarkModel
  * - creator_slug | model_creator.slug → creatorSlug
  * - evaluations.* → evaluations record; intelligence/coding from AA index keys
- * - pricing.price_1m_blended_3_to_1 → blendedPricePer1M
- * - context_window_tokens → contextWindowTokens
+ * - pricing.price_1m_blended_3_to_1, else (3×input + output) / 4 → blendedPricePer1M
+ *   (Free omits blended; Pro may include it)
+ * - context_window_tokens → contextWindowTokens (Pro-only; omitted on Free)
  */
-const MODELS_URL = "https://artificialanalysis.ai/api/v2/data/llms/models";
+const MODELS_URL = "https://artificialanalysis.ai/api/v2/language/models/free";
+const MAX_PAGES = 20;
 
 const INTELLIGENCE_KEY = "artificial_analysis_intelligence_index";
 const CODING_KEY = "artificial_analysis_coding_index";
@@ -62,6 +64,29 @@ function normalizeEvaluations(raw: unknown): Record<string, number | null> {
   return out;
 }
 
+function blendedFromPricing(
+  pricing: Record<string, unknown> | undefined,
+  item: Record<string, unknown>
+): number | undefined {
+  const explicit =
+    readNumber(pricing?.price_1m_blended_3_to_1) ?? readNumber(item.price_1m_blended_3_to_1);
+  if (explicit !== undefined) return explicit;
+
+  const input =
+    readNumber(pricing?.price_1m_input_tokens) ?? readNumber(item.price_1m_input_tokens);
+  const output =
+    readNumber(pricing?.price_1m_output_tokens) ?? readNumber(item.price_1m_output_tokens);
+  if (input === undefined || output === undefined) return undefined;
+  return (3 * input + output) / 4;
+}
+
+function hasMorePages(payload: unknown, page: number): boolean {
+  if (!isRecord(payload) || !isRecord(payload.pagination)) return false;
+  if (payload.pagination.has_more === true) return true;
+  const totalPages = readNumber(payload.pagination.total_pages);
+  return totalPages !== undefined && page < totalPages;
+}
+
 function mapAaItem(item: Record<string, unknown>): BenchmarkModel | null {
   const slug = typeof item.slug === "string" ? item.slug.trim() : "";
   const name = typeof item.name === "string" ? item.name.trim() : "";
@@ -86,8 +111,7 @@ function mapAaItem(item: Record<string, unknown>): BenchmarkModel | null {
   const coding =
     evaluations[CODING_KEY] ?? readNumber(item[CODING_KEY]) ?? readNumber(item.coding_index);
 
-  const blendedPricePer1M =
-    readNumber(pricing?.price_1m_blended_3_to_1) ?? readNumber(item.price_1m_blended_3_to_1);
+  const blendedPricePer1M = blendedFromPricing(pricing, item);
 
   const contextWindowTokens =
     readNumber(item.context_window_tokens) ?? readNumber(item.contextWindowTokens);
@@ -126,33 +150,27 @@ function extractModelList(payload: unknown): Record<string, unknown>[] {
   );
 }
 
-export async function fetchArtificialAnalysisModels(opts: {
-  apiKey: string;
-  timeoutMs: number;
-  fetchImpl?: typeof fetch;
-}): Promise<BenchmarkModel[]> {
-  const apiKey = opts.apiKey.trim();
-  if (!apiKey) {
-    throw new ArtificialAnalysisError("missing_api_key", "Artificial Analysis API key is required");
-  }
-
-  const fetchFn = opts.fetchImpl ?? fetch;
-
+async function fetchModelsPage(
+  fetchFn: typeof fetch,
+  apiKey: string,
+  timeoutMs: number,
+  page: number
+): Promise<unknown> {
   let response: Response;
   try {
-    response = await fetchFn(MODELS_URL, {
+    response = await fetchFn(`${MODELS_URL}?page=${page}`, {
       method: "GET",
       headers: {
         Accept: "application/json",
         "x-api-key": apiKey,
       },
-      signal: AbortSignal.timeout(opts.timeoutMs),
+      signal: AbortSignal.timeout(timeoutMs),
     });
   } catch (err) {
     if (isTimeoutError(err)) {
       throw new ArtificialAnalysisError(
         "timeout",
-        `Artificial Analysis request timed out after ${opts.timeoutMs}ms`
+        `Artificial Analysis request timed out after ${timeoutMs}ms`
       );
     }
     throw err;
@@ -166,17 +184,35 @@ export async function fetchArtificialAnalysisModels(opts: {
     );
   }
 
-  let payload: unknown;
   try {
-    payload = await response.json();
+    return await response.json();
   } catch {
     throw new ArtificialAnalysisError(
       "parse_error",
       "Artificial Analysis response is not valid JSON"
     );
   }
+}
 
-  const items = extractModelList(payload);
+export async function fetchArtificialAnalysisModels(opts: {
+  apiKey: string;
+  timeoutMs: number;
+  fetchImpl?: typeof fetch;
+}): Promise<BenchmarkModel[]> {
+  const apiKey = opts.apiKey.trim();
+  if (!apiKey) {
+    throw new ArtificialAnalysisError("missing_api_key", "Artificial Analysis API key is required");
+  }
+
+  const fetchFn = opts.fetchImpl ?? fetch;
+  const items: Record<string, unknown>[] = [];
+
+  for (let page = 1; page <= MAX_PAGES; page++) {
+    const payload = await fetchModelsPage(fetchFn, apiKey, opts.timeoutMs, page);
+    items.push(...extractModelList(payload));
+    if (!hasMorePages(payload, page)) break;
+  }
+
   const models = items.map(mapAaItem).filter((m): m is BenchmarkModel => m !== null);
 
   if (models.length === 0 && items.length > 0) {
